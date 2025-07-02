@@ -127,8 +127,8 @@ class MedicalAnkiGenerator:
             templates=[
                 {
                     'name': 'Cloze',
-                    'qfmt': '{{cloze:Text}}<br><br>{{Extra}}',
-                    'afmt': '{{cloze:Text}}<br><br>{{Extra}}',
+                    'qfmt': '{{cloze:Text}}',  # Front: Only the cloze text
+                    'afmt': '{{cloze:Text}}<br><br>{{Extra}}',  # Back: Cloze text + Extra content
                 },
             ],
             css=css,
@@ -442,12 +442,8 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
                     
                     print(f"✅ Refinement complete: {total_original_cards} cards → {total_refined_cards} optimized cards")
                     
-                    # Only use refined cards if we didn't lose too many
-                    if total_refined_cards >= total_original_cards * 0.5:  # Keep at least 50% of cards
-                        return refined_list
-                    else:
-                        print(f"⚠️ Too many cards lost in refinement ({total_refined_cards}/{total_original_cards}), using original cards")
-                        return all_cards_data
+                    # Always return refined cards in advanced mode, let process_lecture handle both versions
+                    return refined_list
                     
         except Exception as e:
             print(f"❌ Refinement failed: {str(e)}")
@@ -470,16 +466,14 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
                 print(f"⚠️ Could not load progress file: {e}")
         return None
     
-    def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], output_dir: str):
+    def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], output_dir: str, deck_suffix: str = ""):
         """Create Anki package (.apkg) with cards and images using genanki."""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
         deck_id = random.randrange(1 << 30, 1 << 31)
-        deck = genanki.Deck(
-            deck_id,
-            f'Medical::{lecture_name}'
-        )
+        deck_name = f'Medical::{lecture_name}{deck_suffix}'
+        deck = genanki.Deck(deck_id, deck_name)
         
         media_files = []
         page_to_image = {page_num: img for img, page_num in images}
@@ -492,6 +486,8 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
         
         card_mode_text = "Single Card Mode (all blanks shown together)" if self.single_card_mode else "Multiple Card Mode (separate cards for each blank)"
         all_cards_text.append(f"Card Mode: {card_mode_text}")
+        if deck_suffix:
+            all_cards_text.append(f"Deck Type: {deck_suffix.replace('::', '').strip()}")
         if self.custom_tags:
             all_cards_text.append(f"Custom Tags: {', '.join(self.custom_tags)}")
         all_cards_text.append("-" * 50)
@@ -503,7 +499,8 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
             image_filename = f"slide_{lecture_name}_{page_num:03d}.png"
             if page_num in page_to_image:
                 image_path = temp_media_dir / image_filename
-                page_to_image[page_num].save(image_path, "PNG", optimize=True)
+                if not image_path.exists():  # Only save if not already saved
+                    page_to_image[page_num].save(image_path, "PNG", optimize=True)
                 media_files.append(str(image_path))
             
             for card in slide_cards:
@@ -518,6 +515,8 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
                 
                 # Combine default and custom tags
                 tags = [f'slide_{page_num}', lecture_name.replace(" ", "_"), 'medical'] + self.custom_tags
+                if deck_suffix:
+                    tags.append(deck_suffix.replace('::', '').strip().lower())
                 
                 note = genanki.Note(
                     model=self.cloze_model,
@@ -541,21 +540,18 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
         package = genanki.Package(deck)
         package.media_files = media_files
         
-        apkg_filename = output_path / f"{lecture_name}.apkg"
+        # Create filename with suffix
+        filename_suffix = deck_suffix.replace('::', '_').strip() if deck_suffix else ""
+        apkg_filename = output_path / f"{lecture_name}{filename_suffix}.apkg"
         package.write_to_file(str(apkg_filename))
         
-        text_file = output_path / f"{lecture_name}_cards_reference.txt"
+        text_file = output_path / f"{lecture_name}{filename_suffix}_cards_reference.txt"
         with open(text_file, 'w', encoding='utf-8') as f:
-            f.write(f"Anki Cards for {lecture_name}\n")
+            f.write(f"Anki Cards for {lecture_name}{deck_suffix}\n")
             f.write(f"Total cards: {card_number - 1}\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("=" * 50 + "\n\n")
             f.write("\n".join(all_cards_text))
-        
-        # Clean up
-        for file in temp_media_dir.glob("*"):
-            file.unlink()
-        temp_media_dir.rmdir()
         
         print(f"\n✅ Successfully created {card_number - 1} flashcards")
         if self.card_style:
@@ -623,16 +619,48 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
         
         # Advanced mode: critique and refine all cards
         if advanced_mode and all_cards_data:
-            all_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
-        
-        print("\n📦 Creating Anki package...")
-        apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
-        
-        if progress_file.exists():
-            progress_file.unlink()
-            print("🧹 Cleaned up progress file")
-        
-        return apkg_path
+            refined_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
+            
+            # Create both original and refined decks
+            print("\n📦 Creating ORIGINAL deck...")
+            original_apkg = self.create_anki_package(all_cards_data, lecture_name, images, output_dir, deck_suffix="::Original")
+            
+            print("\n📦 Creating REFINED deck...")
+            refined_apkg = self.create_anki_package(refined_cards_data, lecture_name, images, output_dir, deck_suffix="::Refined")
+            
+            # Clean up temp media only after both packages are created
+            temp_media_dir = Path(output_dir) / "temp_media"
+            if temp_media_dir.exists():
+                for file in temp_media_dir.glob("*"):
+                    file.unlink()
+                temp_media_dir.rmdir()
+            
+            print("\n🎯 Advanced mode complete!")
+            print(f"📊 Original: {sum(len(d['cards']) for d in all_cards_data)} cards")
+            print(f"📊 Refined: {sum(len(d['cards']) for d in refined_cards_data)} cards")
+            print("💡 Import both decks to compare and choose the best version!")
+            
+            if progress_file.exists():
+                progress_file.unlink()
+                print("🧹 Cleaned up progress file")
+            
+            return [original_apkg, refined_apkg]
+        else:
+            print("\n📦 Creating Anki package...")
+            apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
+            
+            # Clean up temp media after package creation
+            temp_media_dir = Path(output_dir) / "temp_media"
+            if temp_media_dir.exists():
+                for file in temp_media_dir.glob("*"):
+                    file.unlink()
+                temp_media_dir.rmdir()
+            
+            if progress_file.exists():
+                progress_file.unlink()
+                print("🧹 Cleaned up progress file")
+            
+            return apkg_path
     
     def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True, advanced_mode: bool = False):
         """Process all PDFs in a folder with resume capability."""
@@ -712,7 +740,7 @@ def parse_tags(tags_string: str) -> List[str]:
 
 def main():
     print("""
-    🏥 Medical Lecture to Anki Converter (Advanced Edition)
+    🏥 Ankify : Lecture to Artificially Intelligent Flashcards (Advanced Edition)
     ======================================================
     
     Features:
