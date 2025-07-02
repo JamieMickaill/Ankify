@@ -16,8 +16,6 @@ import genanki
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-##TODO: readme for flags
-
 class MedicalAnkiGenerator:
     def __init__(self, openai_api_key: str, single_card_mode: bool = False, 
                  custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None):
@@ -285,42 +283,62 @@ class MedicalAnkiGenerator:
         
         # Prepare all cards for critique
         cards_for_review = []
+        total_original_cards = 0
         for slide_data in all_cards_data:
             for card in slide_data['cards']:
                 cards_for_review.append({
                     'slide': slide_data['page_num'],
                     'text': card['text'],
                     'facts': card.get('facts', []),
-                    'context': card.get('context', '')
+                    'context': card.get('context', ''),
+                    'clinical_relevance': card.get('clinical_relevance', '')
                 })
+                total_original_cards += 1
         
-        prompt = f"""You are an expert medical educator reviewing flashcards from a lecture on "{lecture_name}".
+        print(f"📊 Analyzing {total_original_cards} cards for optimization...")
+        
+        cloze_format_instruction = "using {{c1::}}, {{c2::}}, etc." if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
+        
+        prompt = f"""You are an expert medical educator reviewing cloze deletion flashcards from a lecture on "{lecture_name}".
 
-Review ALL the following {len(cards_for_review)} flashcards and:
+CRITICAL INSTRUCTIONS:
+1. ALL cards MUST remain in cloze deletion format {cloze_format_instruction}
+2. PRESERVE the cloze deletion syntax exactly - do not convert to Q&A format
+3. Each refined card must have at least one cloze deletion
 
-1. IDENTIFY the most important concepts for both MCQ exams and clinical practice
-2. ELIMINATE redundancy while preserving essential information
-3. IMPROVE clarity and conciseness
-4. ENSURE appropriate difficulty level
-5. ADD clinical reasoning connections where relevant
-6. PRIORITIZE high-yield facts that are frequently tested
-7. VERIFY medical accuracy
+Review these {len(cards_for_review)} cloze deletion flashcards and optimize them by:
+
+1. MAINTAINING cloze format while improving clarity
+2. MERGING redundant cards that test the same concept
+3. SPLITTING overly complex cards
+4. REMOVING low-yield information
+5. ADDING clinical pearls to context when relevant
+6. ENSURING medical accuracy
+7. PRIORITIZING high-yield exam content
 
 Current flashcards:
 {json.dumps(cards_for_review, indent=2)}
 
-Return a refined JSON array with the same structure but optimized cards. You may:
-- Merge related cards that test the same concept
-- Split complex cards that test too many concepts
-- Reword for clarity
-- Add clinical pearls in the context
-- Remove low-yield information
-- Ensure consistent formatting
+Return a refined JSON array with the SAME structure. Each card MUST have:
+- "slide": slide number
+- "text": The cloze deletion text WITH {{{{c1::answer}}}} format preserved
+- "facts": Array of facts being tested
+- "context": Brief context
+- "clinical_relevance": Optional clinical pearl
 
-Focus on creating cards that promote deep understanding, not just memorization."""
+Example of correct format:
+{{
+  "slide": 1,
+  "text": "{{{{c1::Peristalsis}}}} is the {{{{c2::rhythmic contraction}}}} of smooth muscle",
+  "facts": ["Peristalsis", "rhythmic contraction"],
+  "context": "Key GI physiology",
+  "clinical_relevance": "Absent in ileus"
+}}
+
+DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions!"""
 
         payload = {
-            "model": "o3-mini",
+            "model": "o3",
             "messages": [
                 {
                     "role": "user",
@@ -344,25 +362,47 @@ Focus on creating cards that promote deep understanding, not just memorization."
                 if json_match:
                     refined_cards = json.loads(json_match.group())
                     
+                    # Validate that cards still have cloze format
+                    valid_cards = []
+                    for card in refined_cards:
+                        if '{{c' in card.get('text', ''):
+                            valid_cards.append(card)
+                        else:
+                            print(f"⚠️ Skipping card without cloze format: {card.get('text', '')[:50]}...")
+                    
                     # Reorganize refined cards back into slide structure
                     refined_data = {}
-                    for card in refined_cards:
+                    for card in valid_cards:
                         slide_num = card.get('slide', 1)
                         if slide_num not in refined_data:
                             refined_data[slide_num] = {
                                 'page_num': slide_num,
                                 'cards': []
                             }
+                        
+                        # Apply single card format if needed
+                        card_text = card['text']
+                        if self.single_card_mode:
+                            card_text = self.convert_to_single_card_format(card_text)
+                        
                         refined_data[slide_num]['cards'].append({
-                            'text': self.add_bold_formatting(card['text']),
+                            'text': self.add_bold_formatting(card_text),
                             'facts': card.get('facts', []),
                             'context': card.get('context', ''),
                             'clinical_relevance': card.get('clinical_relevance', '')
                         })
                     
                     refined_list = list(refined_data.values())
-                    print(f"✅ Refinement complete: {len(cards_for_review)} cards → {sum(len(d['cards']) for d in refined_list)} optimized cards")
-                    return refined_list
+                    total_refined_cards = sum(len(d['cards']) for d in refined_list)
+                    
+                    print(f"✅ Refinement complete: {total_original_cards} cards → {total_refined_cards} optimized cards")
+                    
+                    # Only use refined cards if we didn't lose too many
+                    if total_refined_cards >= total_original_cards * 0.5:  # Keep at least 50% of cards
+                        return refined_list
+                    else:
+                        print(f"⚠️ Too many cards lost in refinement ({total_refined_cards}/{total_original_cards}), using original cards")
+                        return all_cards_data
                     
         except Exception as e:
             print(f"❌ Refinement failed: {str(e)}")
@@ -625,7 +665,7 @@ def parse_tags(tags_string: str) -> List[str]:
 
 def main():
     print("""
-    🏥 Ankify (Advanced Edition)
+    🏥 Medical Lecture to Anki Converter (Advanced Edition)
     ======================================================
     
     Features:
