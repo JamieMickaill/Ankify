@@ -1,0 +1,80 @@
+Anki Cards for Paraneoplastic syndromes_slides
+Total cards: 12
+Generated: 2025-07-02 13:01:36
+==================================================
+
+Card Mode: Single Card Mode (all blanks shown together)
+Custom Tags: SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 1 (Slide 1):
+Text: Define paraneoplastic syndromes and describe their typical timing in relation to cancer.
+Facts tested: Paraneoplastic syndromes are symptoms/signs caused by tumor-derived factors (ectopic hormones, cytokines) or immune cross-reactivity (antibodies against tumor antigens that cross-react with normal tissues)., They can precede, occur concurrently with, or follow the diagnosis of cancer.
+Context: Understanding the definition and timing is key for early recognition of occult cancers and guiding further work-up.
+Tags: slide_1, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 2 (Slide 2):
+Text: What are the two principal mechanisms underlying paraneoplastic syndromes?
+Facts tested: Mechanism 1: Tumor secretion of ectopic hormones, cytokines, or growth factors., Mechanism 2: Immune cross-reactivity between tumor antigens and normal tissues, often targeting neural structures.
+Context: Knowing these mechanisms helps explain the diverse clinical presentations seen in paraneoplastic syndromes.
+Tags: slide_2, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 3 (Slide 3):
+Text: Describe the key clinical features and paraneoplastic associations of dermatomyositis.
+Facts tested: Features: Heliotrope rash (purple discoloration on upper eyelids), Gottron papules (scaly eruptions over MCP/PIP joints), and proximal muscle weakness., Paraneoplastic associations: Solid tumors such as breast, lung, ovary, prostate, pancreas, bladder, and stomach carcinoma., Diagnostic findings include elevated serum CK and a muscle biopsy with perivascular inflammation and perifascicular atrophy.
+Context: In older patients presenting with characteristic rashes and muscle weakness, consider screening for an underlying malignancy.
+Tags: slide_3, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 4 (Slide 4):
+Text: How do dermatomyositis and polymyositis differ in terms of cancer risk?
+Facts tested: Dermatomyositis has a higher cancer risk (Standardized Incidence Ratio [SIR] ~4.66) compared to polymyositis (SIR ~1.75)., Cancer risk in dermatomyositis is especially high in older patients and males, with the highest risk occurring during the first year after diagnosis.
+Context: This distinction is important for risk stratification and guiding the timing of cancer surveillance in patients with inflammatory myopathies.
+Tags: slide_4, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 5 (Slide 5):
+Text: What are the key diagnostic findings and <b>management</b> strategies in dermatomyositis?
+Facts tested: Diagnosis: Elevated creatine kinase (CK) and muscle biopsy showing perivascular inflammatory infiltrate with perifascicular atrophy., Management: Immune-modulating therapy (e.g., steroids) combined with tumor-directed therapies such as chemotherapy or surgery.
+Context: Addressing both the autoimmune myopathy and the underlying malignancy is essential for optimal patient outcomes.
+Tags: slide_5, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 6 (Slide 6):
+Text: Explain the <b>pathophysiology</b>, clinical features, and high-yield associations of paraneoplastic hypercalcemia.
+Facts tested: Pathophysiology: Most commonly caused by tumor secretion of parathyroid hormone-related protein (PTHrP) (accounts for ~50–80% of cases), as well as osteolytic metastases, and rarely by 1,25-dihydroxy-vitamin D or ectopic PTH secretion., Clinical features: Symptoms are recalled by the mnemonic 'moans, bones, stones, groans' and include neuropsychiatric, skeletal, renal, and gastrointestinal manifestations., Common associations: Squamous cell carcinoma of the lung (especially the squamous subtype), breast cancer, and multiple myeloma; note that hypercalcemia can occur without bone metastases., Prognosis: Paraneoplastic hypercalcemia is associated with a poor prognosis.
+Context: Recognizing the clinical syndrome and its associations facilitates timely diagnosis and management of the underlying malignancy.
+Tags: slide_6, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 7 (Slide 7):
+Text: Outline the <b>acute</b> <b>management</b> strategy for hypercalcemia in cancer patients.
+Facts tested: Immediately discontinue calcium supplements, vitamin D preparations, and thiazide diuretics., Initiate aggressive intravenous isotonic saline hydration to restore intravascular volume and promote renal calcium excretion., Administer IV bisphosphonates (e.g., zoledronate 4 mg or pamidronate 90 mg) to inhibit osteoclast-mediated bone resorption; note that serum calcium typically declines over 2–4 days, reaches nadir at 4–7 days, and remains suppressed for up to 3 weeks.
+Context: Prompt intervention is essential to mitigate life-threatening complications of hypercalcemia while monitoring to avoid overly rapid correction.
+Tags: slide_7, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 8 (Slide 8):
+Text: Describe the <b>pathophysiology</b>, diagnostic criteria, and initial <b>management</b> of SIADH as a paraneoplastic <b>syndrome</b>.
+Facts tested: Pathophysiology: Ectopic secretion of antidiuretic hormone (ADH) by tumors (most commonly small-cell lung carcinoma) leads to water retention and dilutional euvolemic hyponatremia., Diagnostic criteria: Serum sodium <130 mmol/L, serum osmolality <270 mOsm/kg, inappropriately concentrated urine with osmolality >100 mOsm/kg (often >300), urine sodium >10 mmol/L (often >40), with normal renal, adrenal, and thyroid function., Management: Treat the underlying malignancy, institute fluid restriction (600–1000 mL/day), and in severe cases, use hypertonic saline with gradual correction to avoid osmotic demyelination; pharmacotherapies such as demeclocycline or ADH receptor antagonists (vaptans) may be considered for refractory cases.
+Context: Recognizing SIADH is critical in cancer patients with hyponatremia and mandates careful correction to prevent neurologic complications.
+Tags: slide_8, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 9 (Slide 9):
+Text: What are the key features of paraneoplastic neurologic syndromes and which antibodies are commonly associated?
+Facts tested: Features: These syndromes result from immune-mediated neuronal damage and can affect any part of the nervous system (CNS, peripheral nerves, neuromuscular junction, or muscle). They often present acutely or subacutely, and neurological symptoms may precede the cancer diagnosis by months to years., Common antibodies include: Anti-Hu (encephalomyelitis and sensory neuronopathy, usually SCLC), Anti-Yo (cerebellar degeneration typically in breast/ovarian cancer), Anti-Ri (cerebellar degeneration with opsoclonus in breast/gynecologic tumors), Anti-Tr (associated with Hodgkin lymphoma), Anti-CV2/CRMP-5 (linked to SCLC, thymoma), Anti-Ma (limbic encephalitis in testicular or other solid tumors), Anti-amphiphysin (stiff-person syndrome in breast cancer or SCLC), and Anti-recoverin (cancer-associated retinopathy in SCLC or melanoma).
+Context: Detection of onconeural antibodies should trigger a thorough search for an underlying malignancy, even in patients without an established cancer diagnosis.
+Tags: slide_9, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 10 (Slide 10):
+Text: Outline the diagnostic approach and <b>management</b> strategies for paraneoplastic neurologic syndromes.
+Facts tested: Diagnosis: Evaluate cerebrospinal fluid (CSF) for a mild pleocytosis, elevated protein, and increased IgG; onconeural antibodies are tested in both serum and CSF (often with higher CSF titers); the diagnosis is one of exclusion once other causes are ruled out., Management: The cornerstone is effective treatment of the underlying tumor; adjunctive immunomodulatory therapies include plasma exchange, IVIG, and immunosuppressants (corticosteroids, cyclophosphamide, tacrolimus). Note that improvement may be limited if significant neuronal loss (e.g., cerebellar degeneration) has occurred, whereas syndromes affecting the neuromuscular junction (e.g., Lambert–Eaton myasthenic syndrome) are more likely to be reversible.
+Context: An early and aggressive work-up is crucial to preserve neurological function and improve overall outcomes.
+Tags: slide_10, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 11 (Slide 11):
+Text: What is the recommended approach for cancer screening in patients with suspected paraneoplastic syndromes?
+Facts tested: In patients with classic paraneoplastic symptoms and no known malignancy, initiate a complete search for occult cancer using a whole-body PET scan, and repeat clinical and radiographic surveillance every 3–6 months for 2–3 years., In patients with an established cancer, new-onset paraneoplastic neurologic symptoms should prompt evaluation for cancer recurrence.
+Context: Screening strategies are critical to ensuring timely diagnosis and treatment of underlying malignancies associated with paraneoplastic syndromes.
+Tags: slide_11, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
+Card 12 (Slide 12):
+Text: Briefly describe cancer anorexia/cachexia and paraneoplastic fever.
+Facts tested: Cancer anorexia/cachexia: A hypercatabolic state characterized by accelerated loss of skeletal muscle, driven by tumor-secreted cytokines (e.g., TNF-α, IL-1β, IFN-α, IL-6) leading to significant morbidity., Paraneoplastic fever: A cytokine-mediated fever that typically responds well to steroids.
+Context: Recognizing these systemic effects can help differentiate paraneoplastic manifestations from other complications such as infection.
+Tags: slide_12, Paraneoplastic_syndromes_slides, medical, SMP::Y2::5.3::Online, Ankify
+--------------------------------------------------
