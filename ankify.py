@@ -52,6 +52,19 @@ class MedicalAnkiGenerator:
         font_family = self.card_style.get('font_family', 'arial')
         font_size = self.card_style.get('font_size', '20px')
         
+        # Create a unique model ID based on style settings
+        # This ensures Anki creates a new note type with the custom CSS
+        style_hash = hash(str(self.card_style))
+        model_id = 1234567890 + (abs(style_hash) % 1000000)
+        
+        # Create model name that reflects custom styling
+        style_desc = []
+        if bg_color != 'white':
+            style_desc.append('Custom BG')
+        if cloze_color != 'blue':
+            style_desc.append('Custom Cloze')
+        model_name = 'Medical Cloze with Image' + (' (' + ', '.join(style_desc) + ')' if style_desc else '')
+        
         css = f'''
             .card {{
                 font-family: {font_family};
@@ -64,6 +77,9 @@ class MedicalAnkiGenerator:
             .cloze {{
                 font-weight: bold;
                 color: {cloze_color};
+                background-color: rgba(255, 255, 255, 0.1);
+                padding: 2px 4px;
+                border-radius: 3px;
             }}
             img {{
                 max-width: 100%;
@@ -74,27 +90,36 @@ class MedicalAnkiGenerator:
             }}
             .context {{
                 font-style: italic;
-                color: #666;
+                color: {self._adjust_color_brightness(text_color, 0.7)};
                 margin-top: 15px;
                 font-size: 0.9em;
             }}
             b, strong {{
-                color: #d32f2f;
+                color: {self._adjust_color_brightness(cloze_color, 1.2)};
                 font-weight: bold;
             }}
             .clinical-pearl {{
-                background-color: #fff3cd;
-                border: 1px solid #ffeaa7;
+                background-color: rgba(255, 243, 205, 0.3);
+                border: 1px solid rgba(255, 234, 167, 0.5);
                 border-radius: 5px;
                 padding: 10px;
                 margin-top: 10px;
                 text-align: left;
+                color: {text_color};
+            }}
+            /* Night mode support */
+            .night_mode .card {{
+                color: {text_color};
+                background-color: {bg_color};
+            }}
+            .night_mode .cloze {{
+                color: {cloze_color};
             }}
         '''
         
         return genanki.Model(
-            1234567890,
-            'Medical Cloze with Image (Styled)',
+            model_id,
+            model_name,
             fields=[
                 {'name': 'Text'},
                 {'name': 'Extra'},
@@ -109,6 +134,26 @@ class MedicalAnkiGenerator:
             css=css,
             model_type=genanki.Model.CLOZE
         )
+    
+    def _adjust_color_brightness(self, color: str, factor: float) -> str:
+        """Adjust color brightness for better contrast."""
+        if not color.startswith('#'):
+            return color
+        
+        try:
+            # Convert hex to RGB
+            color = color.lstrip('#')
+            r, g, b = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+            
+            # Adjust brightness
+            r = min(255, int(r * factor))
+            g = min(255, int(g * factor))
+            b = min(255, int(b * factor))
+            
+            # Convert back to hex
+            return f'#{r:02x}{g:02x}{b:02x}'
+        except:
+            return color
         
     def pdf_to_images(self, pdf_path: str, dpi: int = 150) -> List[Tuple[Image.Image, int]]:
         """Convert PDF pages to images."""
@@ -513,6 +558,8 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
         temp_media_dir.rmdir()
         
         print(f"\n✅ Successfully created {card_number - 1} flashcards")
+        if self.card_style:
+            print(f"🎨 Custom styling applied: {', '.join([f'{k}={v}' for k, v in self.card_style.items()])}")
         print(f"📦 Anki package saved: {apkg_filename}")
         print(f"📄 Reference text saved: {text_file}")
         
