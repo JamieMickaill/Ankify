@@ -16,10 +16,15 @@ import genanki
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+##TODO: readme for flags
+
 class MedicalAnkiGenerator:
-    def __init__(self, openai_api_key: str, single_card_mode: bool = False):
+    def __init__(self, openai_api_key: str, single_card_mode: bool = False, 
+                 custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None):
         self.api_key = openai_api_key
         self.single_card_mode = single_card_mode
+        self.custom_tags = custom_tags or []
+        self.card_style = card_style or {}
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -36,11 +41,62 @@ class MedicalAnkiGenerator:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
-        # Create a custom Anki model for cloze cards with images
+        # Create a custom Anki model with enhanced styling
         model_id = 1234567890  # Fixed ID for consistency
-        self.cloze_model = genanki.Model(
-            model_id,
-            'Medical Cloze with Image',
+        self.cloze_model = self._create_styled_model()
+        
+    def _create_styled_model(self):
+        """Create Anki model with custom styling."""
+        # Default style values
+        bg_color = self.card_style.get('background', 'white')
+        text_color = self.card_style.get('text_color', 'black')
+        cloze_color = self.card_style.get('cloze_color', 'blue')
+        font_family = self.card_style.get('font_family', 'arial')
+        font_size = self.card_style.get('font_size', '20px')
+        
+        css = f'''
+            .card {{
+                font-family: {font_family};
+                font-size: {font_size};
+                text-align: center;
+                color: {text_color};
+                background-color: {bg_color};
+                padding: 20px;
+            }}
+            .cloze {{
+                font-weight: bold;
+                color: {cloze_color};
+            }}
+            img {{
+                max-width: 100%;
+                max-height: 600px;
+                margin-top: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }}
+            .context {{
+                font-style: italic;
+                color: #666;
+                margin-top: 15px;
+                font-size: 0.9em;
+            }}
+            b, strong {{
+                color: #d32f2f;
+                font-weight: bold;
+            }}
+            .clinical-pearl {{
+                background-color: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 5px;
+                padding: 10px;
+                margin-top: 10px;
+                text-align: left;
+            }}
+        '''
+        
+        return genanki.Model(
+            1234567890,
+            'Medical Cloze with Image (Styled)',
             fields=[
                 {'name': 'Text'},
                 {'name': 'Extra'},
@@ -52,24 +108,7 @@ class MedicalAnkiGenerator:
                     'afmt': '{{cloze:Text}}<br><br>{{Extra}}',
                 },
             ],
-            css='''
-                .card {
-                    font-family: arial;
-                    font-size: 20px;
-                    text-align: center;
-                    color: black;
-                    background-color: white;
-                }
-                .cloze {
-                    font-weight: bold;
-                    color: blue;
-                }
-                img {
-                    max-width: 100%;
-                    max-height: 600px;
-                    margin-top: 20px;
-                }
-            ''',
+            css=css,
             model_type=genanki.Model.CLOZE
         )
         
@@ -106,6 +145,31 @@ class MedicalAnkiGenerator:
             return re.sub(r'\{\{c\d+::', '{{c1::', text)
         return text
     
+    def add_bold_formatting(self, text: str) -> str:
+        """Add bold formatting to key medical terms not in cloze deletions."""
+        # List of common medical term patterns to bold
+        key_patterns = [
+            r'\b(diagnosis|treatment|syndrome|disease|disorder|symptom|sign|pathophysiology|mechanism|receptor|enzyme|hormone|drug|medication|dose|contraindication|indication|complication|prognosis|etiology|differential|investigation|management)\b',
+            r'\b(acute|chronic|primary|secondary|benign|malignant|systemic|focal|diffuse|bilateral|unilateral)\b',
+            r'\b(\d+\s*(?:mg|mcg|g|kg|mL|L|mmHg|bpm|/min|/hr|/day|%|mmol|mg/dL))\b'
+        ]
+        
+        # Don't bold text that's already in cloze deletions
+        def replace_if_not_in_cloze(match):
+            term = match.group(0)
+            # Check if this term is within a cloze deletion
+            start = match.start()
+            # Simple check - could be made more sophisticated
+            before_text = text[:start]
+            if before_text.count('{{') > before_text.count('}}'):
+                return term  # Inside cloze, don't bold
+            return f'<b>{term}</b>'
+        
+        for pattern in key_patterns:
+            text = re.sub(pattern, replace_if_not_in_cloze, text, flags=re.IGNORECASE)
+        
+        return text
+    
     def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
         """Send slide image to OpenAI API for analysis with retry logic."""
         base64_image = self.image_to_base64(image)
@@ -136,25 +200,22 @@ class MedicalAnkiGenerator:
         - "text": The complete text with cloze deletions in {{c1::answer}} format (can have multiple clozes {{c1::}}, {{c2::}}, etc.)
         - "facts": Array of the key facts being tested
         - "context": Brief context about why this is important
+        - "clinical_relevance": Optional field for clinical pearls or practical applications
         
         Example:
         [
           {{
             "text": "{{{{c1::Peristalsis}}}} is the {{{{c2::autonomous rhythmic contraction}}}} of smooth muscle in the GI tract",
             "facts": ["Peristalsis", "autonomous rhythmic contraction"],
-            "context": "Key GI physiology concept"
-          }},
-          {{
-            "text": "The normal resting heart rate is {{{{c1::60-100}}}} beats per minute in {{{{c2::adults}}}}",
-            "facts": ["60-100", "adults"],
-            "context": "Important vital sign parameter"
+            "context": "Key GI physiology concept",
+            "clinical_relevance": "Understanding peristalsis is crucial for diagnosing motility disorders"
           }}
         ]
         
         Create as many cards as needed to cover all testable information on this slide. Use multiple cloze deletions in a single card when testing related concepts. **Make the cards as concise as possible while retaining the key points**"""
         
         payload = {
-            "model": "o3",  # Updated to o3
+            "model": "o3",
             "messages": [
                 {
                     "role": "user",
@@ -172,12 +233,11 @@ class MedicalAnkiGenerator:
                     ]
                 }
             ],
-            "max_completion_tokens": 100000  # Updated for o3
+            "max_completion_tokens": 100000
         }
         
         for attempt in range(max_retries):
             try:
-                # Exponential backoff with jitter
                 if attempt > 0:
                     wait_time = (2 ** attempt) + random.uniform(0, 1)
                     print(f"\n  ⏳ Retry {attempt}/{max_retries} after {wait_time:.1f}s wait...", end='', flush=True)
@@ -187,12 +247,11 @@ class MedicalAnkiGenerator:
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=120  # Increased timeout for o3
+                    timeout=120
                 )
                 
                 if response.status_code == 200:
                     content = response.json()['choices'][0]['message']['content']
-                    # Extract JSON from the response
                     json_match = re.search(r'\[[\s\S]*\]', content)
                     if json_match:
                         cards_data = json.loads(json_match.group())
@@ -200,26 +259,116 @@ class MedicalAnkiGenerator:
                         if self.single_card_mode:
                             for card in cards_data:
                                 card['text'] = self.convert_to_single_card_format(card['text'])
+                        # Add bold formatting to key terms
+                        for card in cards_data:
+                            card['text'] = self.add_bold_formatting(card['text'])
                         return {
                             "page_num": page_num,
                             "cards": cards_data
                         }
-                elif response.status_code == 429:  # Rate limit
+                elif response.status_code == 429:
                     wait_time = int(response.headers.get('Retry-After', 60))
                     print(f"\n  ⚠️ Rate limited. Waiting {wait_time}s...", end='', flush=True)
                     time.sleep(wait_time)
                 else:
                     print(f"\n  ❌ API Error: {response.status_code} - {response.text[:100]}...", end='', flush=True)
                     
-            except requests.exceptions.Timeout:
-                print(f"\n  ⏱️ Request timeout (attempt {attempt + 1}/{max_retries})", end='', flush=True)
-            except requests.exceptions.ConnectionError as e:
-                print(f"\n  🔌 Connection error (attempt {attempt + 1}/{max_retries}): {str(e)[:50]}...", end='', flush=True)
             except Exception as e:
                 print(f"\n  ❗ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:50]}...", end='', flush=True)
         
         print(f"\n  ❌ Failed after {max_retries} attempts", end='', flush=True)
         return {"page_num": page_num, "cards": []}
+    
+    def critique_and_refine_cards(self, all_cards_data: List[Dict], lecture_name: str) -> List[Dict]:
+        """Use o3 model to critique and refine all cards for optimal learning."""
+        print("\n🔬 Starting advanced critique and refinement pass...")
+        
+        # Prepare all cards for critique
+        cards_for_review = []
+        for slide_data in all_cards_data:
+            for card in slide_data['cards']:
+                cards_for_review.append({
+                    'slide': slide_data['page_num'],
+                    'text': card['text'],
+                    'facts': card.get('facts', []),
+                    'context': card.get('context', '')
+                })
+        
+        prompt = f"""You are an expert medical educator reviewing flashcards from a lecture on "{lecture_name}".
+
+Review ALL the following {len(cards_for_review)} flashcards and:
+
+1. IDENTIFY the most important concepts for both MCQ exams and clinical practice
+2. ELIMINATE redundancy while preserving essential information
+3. IMPROVE clarity and conciseness
+4. ENSURE appropriate difficulty level
+5. ADD clinical reasoning connections where relevant
+6. PRIORITIZE high-yield facts that are frequently tested
+7. VERIFY medical accuracy
+
+Current flashcards:
+{json.dumps(cards_for_review, indent=2)}
+
+Return a refined JSON array with the same structure but optimized cards. You may:
+- Merge related cards that test the same concept
+- Split complex cards that test too many concepts
+- Reword for clarity
+- Add clinical pearls in the context
+- Remove low-yield information
+- Ensure consistent formatting
+
+Focus on creating cards that promote deep understanding, not just memorization."""
+
+        payload = {
+            "model": "o3-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_completion_tokens": 100000
+        }
+        
+        try:
+            response = self.session.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=300  # Longer timeout for reasoning
+            )
+            
+            if response.status_code == 200:
+                content = response.json()['choices'][0]['message']['content']
+                json_match = re.search(r'\[[\s\S]*\]', content)
+                if json_match:
+                    refined_cards = json.loads(json_match.group())
+                    
+                    # Reorganize refined cards back into slide structure
+                    refined_data = {}
+                    for card in refined_cards:
+                        slide_num = card.get('slide', 1)
+                        if slide_num not in refined_data:
+                            refined_data[slide_num] = {
+                                'page_num': slide_num,
+                                'cards': []
+                            }
+                        refined_data[slide_num]['cards'].append({
+                            'text': self.add_bold_formatting(card['text']),
+                            'facts': card.get('facts', []),
+                            'context': card.get('context', ''),
+                            'clinical_relevance': card.get('clinical_relevance', '')
+                        })
+                    
+                    refined_list = list(refined_data.values())
+                    print(f"✅ Refinement complete: {len(cards_for_review)} cards → {sum(len(d['cards']) for d in refined_list)} optimized cards")
+                    return refined_list
+                    
+        except Exception as e:
+            print(f"❌ Refinement failed: {str(e)}")
+            print("⚠️ Using original cards without refinement")
+        
+        return all_cards_data
     
     def save_progress(self, progress_file: Path, progress_data: Dict):
         """Save progress to a file."""
@@ -238,40 +387,34 @@ class MedicalAnkiGenerator:
     
     def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], output_dir: str):
         """Create Anki package (.apkg) with cards and images using genanki."""
-        # Create output directory
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Generate unique deck ID
         deck_id = random.randrange(1 << 30, 1 << 31)
         deck = genanki.Deck(
             deck_id,
             f'Medical::{lecture_name}'
         )
         
-        # Prepare media files list
         media_files = []
-        
-        # Create a mapping of page numbers to images
         page_to_image = {page_num: img for img, page_num in images}
         
-        # For text output
         all_cards_text = []
         card_number = 1
         
-        # Create temporary directory for images
         temp_media_dir = output_path / "temp_media"
         temp_media_dir.mkdir(exist_ok=True)
         
         card_mode_text = "Single Card Mode (all blanks shown together)" if self.single_card_mode else "Multiple Card Mode (separate cards for each blank)"
         all_cards_text.append(f"Card Mode: {card_mode_text}")
+        if self.custom_tags:
+            all_cards_text.append(f"Custom Tags: {', '.join(self.custom_tags)}")
         all_cards_text.append("-" * 50)
         
         for slide_data in cards_data:
             page_num = slide_data['page_num']
             slide_cards = slide_data['cards']
             
-            # Save the slide image
             image_filename = f"slide_{lecture_name}_{page_num:03d}.png"
             if page_num in page_to_image:
                 image_path = temp_media_dir / image_filename
@@ -279,14 +422,22 @@ class MedicalAnkiGenerator:
                 media_files.append(str(image_path))
             
             for card in slide_cards:
-                # Create the note with cloze text and image
                 note_text = card['text']
-                extra_content = f'<img src="{image_filename}"><br><br><i>Context: {card.get("context", "")}</i>'
+                
+                # Build extra content with clinical relevance if available
+                extra_parts = [f'<img src="{image_filename}">']
+                if card.get('clinical_relevance'):
+                    extra_parts.append(f'<div class="clinical-pearl">💡 {card["clinical_relevance"]}</div>')
+                extra_parts.append(f'<div class="context">Context: {card.get("context", "")}</div>')
+                extra_content = '<br>'.join(extra_parts)
+                
+                # Combine default and custom tags
+                tags = [f'slide_{page_num}', lecture_name.replace(" ", "_"), 'medical'] + self.custom_tags
                 
                 note = genanki.Note(
                     model=self.cloze_model,
                     fields=[note_text, extra_content],
-                    tags=[f'slide_{page_num}', lecture_name.replace(" ", "_"), 'medical']
+                    tags=tags
                 )
                 deck.add_note(note)
                 
@@ -295,19 +446,19 @@ class MedicalAnkiGenerator:
                 all_cards_text.append(f"Text: {note_text}")
                 all_cards_text.append(f"Facts tested: {', '.join(card.get('facts', []))}")
                 all_cards_text.append(f"Context: {card.get('context', 'N/A')}")
+                if card.get('clinical_relevance'):
+                    all_cards_text.append(f"Clinical Relevance: {card['clinical_relevance']}")
+                all_cards_text.append(f"Tags: {', '.join(tags)}")
                 all_cards_text.append("-" * 50)
                 
                 card_number += 1
         
-        # Create the package
         package = genanki.Package(deck)
         package.media_files = media_files
         
-        # Save the .apkg file
         apkg_filename = output_path / f"{lecture_name}.apkg"
         package.write_to_file(str(apkg_filename))
         
-        # Save cards text file for reference
         text_file = output_path / f"{lecture_name}_cards_reference.txt"
         with open(text_file, 'w', encoding='utf-8') as f:
             f.write(f"Anki Cards for {lecture_name}\n")
@@ -316,7 +467,7 @@ class MedicalAnkiGenerator:
             f.write("=" * 50 + "\n\n")
             f.write("\n".join(all_cards_text))
         
-        # Clean up temporary media directory
+        # Clean up
         for file in temp_media_dir.glob("*"):
             file.unlink()
         temp_media_dir.rmdir()
@@ -327,30 +478,28 @@ class MedicalAnkiGenerator:
         
         return apkg_filename
     
-    def process_lecture(self, pdf_path: str, output_dir: str = "anki_output", resume: bool = True):
+    def process_lecture(self, pdf_path: str, output_dir: str = "anki_output", resume: bool = True, advanced_mode: bool = False):
         """Process a single lecture PDF with resume capability."""
         lecture_name = Path(pdf_path).stem
         print(f"\n🔍 Processing lecture: {lecture_name}")
         print(f"🎯 Card mode: {'Single card (all blanks together)' if self.single_card_mode else 'Multiple cards (separate blanks)'}")
+        if advanced_mode:
+            print("🧠 Advanced mode: Enabled (will critique and refine cards)")
         
-        # Create progress file path
         progress_dir = Path(output_dir) / "progress"
         progress_dir.mkdir(parents=True, exist_ok=True)
         progress_file = progress_dir / f"{lecture_name}_progress.pkl"
         
-        # Check for existing progress
         progress_data = None
         if resume:
             progress_data = self.load_progress(progress_file)
             if progress_data:
                 print(f"📂 Found existing progress: {len(progress_data['completed_slides'])} slides already processed")
         
-        # Convert PDF to images
         print("📄 Converting PDF to images...")
         images = self.pdf_to_images(pdf_path)
         print(f"✅ Extracted {len(images)} slides")
         
-        # Initialize or load progress
         if progress_data is None:
             progress_data = {
                 'lecture_name': lecture_name,
@@ -361,7 +510,6 @@ class MedicalAnkiGenerator:
                 'single_card_mode': self.single_card_mode
             }
         
-        # Analyze each slide
         all_cards_data = progress_data['cards_data']
         completed_slides = set(progress_data['completed_slides'])
         
@@ -379,35 +527,36 @@ class MedicalAnkiGenerator:
             else:
                 print(" → No cards generated")
             
-            # Update progress
             completed_slides.add(page_num)
             progress_data['completed_slides'] = list(completed_slides)
             progress_data['cards_data'] = all_cards_data
             progress_data['last_update'] = datetime.now().isoformat()
             
-            # Save progress after each slide
             self.save_progress(progress_file, progress_data)
         
-        # Create Anki package
+        # Advanced mode: critique and refine all cards
+        if advanced_mode and all_cards_data:
+            all_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
+        
         print("\n📦 Creating Anki package...")
         apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
         
-        # Clean up progress file on successful completion
         if progress_file.exists():
             progress_file.unlink()
             print("🧹 Cleaned up progress file")
         
         return apkg_path
     
-    def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True):
+    def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True, advanced_mode: bool = False):
         """Process all PDFs in a folder with resume capability."""
         folder = Path(folder_path)
         pdf_files = list(folder.glob("*.pdf"))
         
         print(f"\n📁 Found {len(pdf_files)} PDF files in {folder}")
         print(f"🎯 Card mode: {'Single card (all blanks together)' if self.single_card_mode else 'Multiple cards (separate blanks)'}")
+        if advanced_mode:
+            print("🧠 Advanced mode: Enabled (will critique and refine cards)")
         
-        # Check for overall progress
         progress_dir = Path(output_dir) / "progress"
         folder_progress_file = progress_dir / "folder_progress.json"
         
@@ -432,10 +581,9 @@ class MedicalAnkiGenerator:
             print(f"{'='*60}")
             
             try:
-                self.process_lecture(str(pdf_file), output_dir, resume=resume)
+                self.process_lecture(str(pdf_file), output_dir, resume=resume, advanced_mode=advanced_mode)
                 successful += 1
                 
-                # Update folder progress
                 completed_files.add(str(pdf_file))
                 folder_progress = {
                     'completed_files': list(completed_files),
@@ -455,50 +603,61 @@ class MedicalAnkiGenerator:
         print(f"✅ Successfully processed {successful}/{len(pdf_files)} lectures")
         print(f"📁 All output saved to: {Path(output_dir).absolute()}")
         
-        # Clean up folder progress file if all completed
         if successful == len(pdf_files) and folder_progress_file.exists():
             folder_progress_file.unlink()
             print("🧹 Cleaned up folder progress file")
 
-# Example usage and setup instructions
+def parse_style_options(style_string: str) -> Dict:
+    """Parse style options from command line string."""
+    style = {}
+    if style_string:
+        for option in style_string.split(','):
+            if '=' in option:
+                key, value = option.split('=', 1)
+                style[key.strip()] = value.strip()
+    return style
+
+def parse_tags(tags_string: str) -> List[str]:
+    """Parse custom tags from command line string."""
+    if tags_string:
+        return [tag.strip() for tag in tags_string.split(',')]
+    return []
+
 def main():
     print("""
-    🏥 Medical Lecture to Anki Converter (with Resume Support)
-    =========================================================
-    
-    This tool converts medical lecture PDFs into Anki flashcards using AI.
-    Now with automatic retry, resume capabilities, and cloze mode options!
+    🏥 Ankify (Advanced Edition)
+    ======================================================
     
     Features:
-    - Automatic retry on API errors (up to 5 attempts)
-    - Resume from where you left off if interrupted
-    - Progress tracking for each slide
-    - Exponential backoff for rate limits
-    - Single card mode: All clozes on one card ({{c1::}} only)
-    - Multiple card mode: Separate cards for each cloze ({{c1::}}, {{c2::}}, etc.)
+    - Automatic retry on API errors
+    - Resume from interruptions
+    - Single/Multiple card modes
+    - Custom styling and tags
+    - Advanced AI critique mode
+    - Bold formatting for key terms
     
     Requirements:
-    1. Install required packages:
-       pip install pymupdf pillow requests genanki
-    
-    2. Get your OpenAI API key from https://platform.openai.com/api-keys
-    
-    3. Run the script with your API key
+    1. Install: pip install pymupdf pillow requests genanki
+    2. Get OpenAI API key from https://platform.openai.com/api-keys
     """)
     
-    # Check if running as script
     import sys
     
     if len(sys.argv) < 3:
         print("Usage: python script.py <api_key> <pdf_file_or_folder> [options]")
         print("\nOptions:")
-        print("  --single-card    Create single cards with all blanks (all {{c1::}})")
-        print("  --no-resume      Don't resume from previous progress")
+        print("  --single-card         All blanks on one card ({{c1::}} only)")
+        print("  --no-resume          Start fresh (don't resume)")
+        print("  --advanced           Enable critique & refinement pass")
+        print("  --tags=tag1,tag2     Add custom tags to all cards")
+        print("  --style=key=value    Custom styling (see examples)")
+        print("\nStyle options:")
+        print("  --style=background=#f0f0f0,text_color=#333,cloze_color=#0066cc")
+        print("  --style=font_family=Georgia,font_size=22px")
         print("\nExamples:")
-        print("  python script.py sk-abc123... cardiology_lecture.pdf")
-        print("  python script.py sk-abc123... /path/to/lectures_folder/")
-        print("  python script.py sk-abc123... lecture.pdf --single-card")
-        print("  python script.py sk-abc123... lecture.pdf --no-resume --single-card")
+        print("  python script.py sk-abc... lecture.pdf --single-card --advanced")
+        print("  python script.py sk-abc... /lectures/ --tags=cardiology,exam2024")
+        print("  python script.py sk-abc... lecture.pdf --style=background=#1a1a1a,text_color=#fff")
         return
     
     api_key = sys.argv[1]
@@ -507,13 +666,31 @@ def main():
     # Parse options
     resume = "--no-resume" not in sys.argv
     single_card_mode = "--single-card" in sys.argv
+    advanced_mode = "--advanced" in sys.argv
     
-    generator = MedicalAnkiGenerator(api_key, single_card_mode=single_card_mode)
+    # Parse custom tags
+    custom_tags = []
+    for arg in sys.argv:
+        if arg.startswith("--tags="):
+            custom_tags = parse_tags(arg.split("=", 1)[1])
+    
+    # Parse custom style
+    card_style = {}
+    for arg in sys.argv:
+        if arg.startswith("--style="):
+            card_style = parse_style_options(arg.split("=", 1)[1])
+    
+    generator = MedicalAnkiGenerator(
+        api_key, 
+        single_card_mode=single_card_mode,
+        custom_tags=custom_tags,
+        card_style=card_style
+    )
     
     if os.path.isfile(path) and path.endswith('.pdf'):
-        generator.process_lecture(path, resume=resume)
+        generator.process_lecture(path, resume=resume, advanced_mode=advanced_mode)
     elif os.path.isdir(path):
-        generator.process_folder(path, resume=resume)
+        generator.process_folder(path, resume=resume, advanced_mode=advanced_mode)
     else:
         print("❌ Please provide a valid PDF file or folder path")
 
