@@ -4,6 +4,7 @@ import base64
 import random
 import time
 import pickle
+import html
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 import pymupdf as fitz
@@ -180,6 +181,25 @@ class MedicalAnkiGenerator:
             image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         image.save(buffered, format="PNG", optimize=True)
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
+    def escape_html_but_preserve_formatting(self, text: str) -> str:
+        """Escape HTML characters but preserve our formatting tags."""
+        # First, escape HTML entities
+        text = html.escape(text, quote=False)
+        
+        # Then restore our specific formatting tags
+        # Restore cloze deletions
+        text = text.replace('{{', '{{').replace('}}', '}}')  # These are already safe
+        
+        # Restore bold tags
+        text = text.replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>')
+        text = text.replace('&lt;strong&gt;', '<strong>').replace('&lt;/strong&gt;', '</strong>')
+        
+        # Restore italic tags
+        text = text.replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
+        text = text.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
+        
+        return text
     
     def convert_to_single_card_format(self, text: str) -> str:
         """Convert multiple cloze numbers (c1, c2, c3...) to all c1 for single card mode."""
@@ -506,11 +526,16 @@ DO NOT return cards like "What is peristalsis?" - they MUST have cloze deletions
             for card in slide_cards:
                 note_text = card['text']
                 
+                # Escape HTML but preserve our formatting
+                note_text = self.escape_html_but_preserve_formatting(note_text)
+                
                 # Build extra content with clinical relevance if available
                 extra_parts = [f'<img src="{image_filename}">']
                 if card.get('clinical_relevance'):
-                    extra_parts.append(f'<div class="clinical-pearl">💡 {card["clinical_relevance"]}</div>')
-                extra_parts.append(f'<div class="context">Context: {card.get("context", "")}</div>')
+                    clinical_text = html.escape(card['clinical_relevance'])
+                    extra_parts.append(f'<div class="clinical-pearl">💡 {clinical_text}</div>')
+                context_text = html.escape(card.get('context', ''))
+                extra_parts.append(f'<div class="context">Context: {context_text}</div>')
                 extra_content = '<br>'.join(extra_parts)
                 
                 # Combine default and custom tags
@@ -740,7 +765,7 @@ def parse_tags(tags_string: str) -> List[str]:
 
 def main():
     print("""
-    🏥 Ankify : Lecture to Artificially Intelligent Flashcards (Advanced Edition)
+    🏥 Ankify: Artificially Intelligent Flashcard Creation (Advanced Edition)
     ======================================================
     
     Features:
