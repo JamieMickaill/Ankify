@@ -304,9 +304,64 @@ class MedicalAnkiGenerator:
         
         prompt = f"""You are analyzing slide {page_num} from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
         
-        Your task is to create flashcards appropriate for medical student level (NOT specialist level):
+        CRITICAL RULES FOR CARD CREATION:
+        1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
+        2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
+        3. Focus on learning outcomes and objectives if shown on the slide
+        4. DO NOT create cards about the title, learning objectives, or outline themselves
         
-        1. Extract concepts that medical students need to know for exams and clinical practice
+        WHAT NOT TO TEST:
+        ❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
+        ❌ "A key learning objective is to explain {{c1::tamoxifen benefit}}" (tests the objective, not the content)
+        ❌ "Today we will discuss {{c1::three types of breast cancer}}" (tests outline, not facts)
+        
+        Instead, use learning objectives to GUIDE what medical facts to extract from content slides.
+        
+        GOOD vs BAD CLOZE EXAMPLES:
+        ✅ GOOD: "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}"
+        ❌ BAD: "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}" (too vague)
+        
+        ✅ GOOD: "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
+        ❌ BAD: "The fluid shouldn't contain {{{{c1::malignant}}}} cells" (which fluid?)
+        
+        ✅ GOOD: "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
+        ❌ BAD: "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}" (tests too much at once)
+        
+        ADVANCED CLOZE PRINCIPLES:
+        
+        ❌ AVOID: "Tamoxifen for {{c1::premenopausal}}, AIs for {{c2::postmenopausal}}" 
+        → Problem: c2 makes c1 obvious (binary choice)
+        ✅ BETTER: "Tamoxifen is preferred for {{c1::premenopausal}} women, AIs for {{c1::postmenopausal}} women"
+        → Both use c1 since they test the same concept (menopause status for drug choice)
+        
+        ❌ POOR: "Adjuvant therapy is recommended for {{c1::all}} ER-positive cancers"
+        → Only tests "all" vs "some" - too simple
+        ✅ BETTER: "Adjuvant {{c1::endocrine}} therapy for {{c2::ER-positive}} early breast cancer is given for {{c3::5 years}} (10 years if high-risk)"
+        → Tests therapy type, receptor status, and duration
+        
+        ❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
+        → Misses key definitional fact
+        ✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
+        → Tests both definition and prognosis
+        
+        ❌ SUPERFICIAL: "{{c1::Palbociclib}} blocks G1-to-S transition"
+        → Only tests drug name
+        ✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
+        → Tests drug class, example, mechanism, and effect
+        
+        PERCENTAGES AND STATISTICS:
+        ❌ AVOID: "BRCA1 mutations occur in {{c1::5-10%}} of breast cancers"
+        → Exact percentages are hard to remember and often change
+        ✅ BETTER: "{{c1::BRCA1}} mutations are found in 5-10% of breast cancers"
+        → Tests the gene name, not the percentage
+        ✅ OR: "BRCA1 mutations are {{c1::uncommon}}, occurring in 5-10% of breast cancers"
+        → Tests clinical significance rather than exact number
+        ✅ EXCEPTION: "BRCA1 mutations increase lifetime breast cancer risk to {{c1::60-80%}}"
+        → This percentage is clinically critical for counseling patients
+        
+        Your task is to create flashcards appropriate for medical student level:
+        
+        1. Extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture)
         2. Create cloze deletion flashcards focusing on:
            - Core pathophysiology and disease mechanisms
            - Key clinical features and presentations
@@ -317,7 +372,14 @@ class MedicalAnkiGenerator:
            - Best practice guidelines (not minute details)
            - Important contraindications and safety considerations
         
-        3. AVOID creating cards for:
+        3. SKIP slides that only contain:
+           - Title/topic announcements
+           - Learning objectives/outcomes lists
+           - Lecture outlines or agendas
+           - Speaker introductions
+           - References/bibliography
+        
+        4. AVOID creating cards for:
            - Specific radiation doses or technical parameters
            - Names/authors of individual studies (unless landmark trials)
            - Overly specialized procedural details
@@ -325,12 +387,19 @@ class MedicalAnkiGenerator:
            - Historical facts unless clinically relevant
            - Subspecialty-specific technical details
         
-        4. FOCUS on:
-           - "Why" and "when" rather than exact numbers
-           - Clinical reasoning and decision pathways
-           - Comparative effectiveness (Drug A vs Drug B)
-           - Key take-home messages from evidence
-           - Practical clinical applications
+        5. ENSURE each card:
+           - Can be understood without seeing the original lecture
+           - Has specific, unambiguous cloze deletions
+           - Tests one clear concept per cloze
+           - Provides enough context to identify the answer
+           - Emphasizes "why" and "when" rather than exact numbers
+           - Focuses on clinical reasoning and decision pathways
+           - Highlights comparative effectiveness (Drug A vs Drug B)
+           - Includes practical clinical applications
+           - Tests ALL key facts in a statement (definitions, mechanisms, effects)
+           - Uses same cloze number (c1) when testing related binary choices
+           - Avoids overly simple clozes like "all" vs "some"
+           - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
         
         {cloze_instruction}
         
@@ -343,14 +412,14 @@ class MedicalAnkiGenerator:
         Example:
         [
           {{
-            "text": "{{{{c1::Metformin}}}} is the first-line medication for type 2 diabetes because it {{{{c2::does not cause hypoglycemia}}}} and has {{{{c3::cardiovascular benefits}}}}",
+            "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is the first-line medication because it {{{{c2::does not cause hypoglycemia}}}} and has {{{{c3::cardiovascular benefits}}}}",
             "facts": ["Metformin", "does not cause hypoglycemia", "cardiovascular benefits"],
             "context": "Essential knowledge for diabetes management in primary care",
             "clinical_relevance": "Always check renal function before prescribing"
           }}
         ]
         
-        Create concise cards testing PRACTICAL MEDICAL KNOWLEDGE that students will use in clinical practice, not obscure details. **Make the cards as concise as possible while retaining the key learning points**"""
+        Create concise, self-contained cards testing PRACTICAL MEDICAL KNOWLEDGE with clear, unambiguous cloze deletions."""
         
         payload = {
             "model": "o3",
@@ -453,7 +522,59 @@ class MedicalAnkiGenerator:
         
         prompt = f"""You are analyzing {len(images)} slides from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
         
-        For EACH slide, extract concepts appropriate for medical student level (NOT specialist level).
+        CRITICAL RULES FOR CARD CREATION:
+        1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
+        2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
+        3. Focus on learning outcomes and objectives if shown on slides
+        4. DO NOT create cards about the title, learning objectives, or outline themselves
+        
+        WHAT NOT TO TEST:
+        ❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
+        ❌ "A key learning objective is to explain {{c1::tamoxifen benefit}}" (tests the objective, not the content)
+        ❌ "Today we will discuss {{c1::three types of breast cancer}}" (tests outline, not facts)
+        
+        Instead, use learning objectives to GUIDE what medical facts to extract from content slides.
+        
+        GOOD vs BAD CLOZE EXAMPLES:
+        ✅ GOOD: "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}"
+        ❌ BAD: "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}" (too vague)
+        
+        ✅ GOOD: "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
+        ❌ BAD: "The fluid shouldn't contain {{{{c1::malignant}}}} cells" (which fluid?)
+        
+        ✅ GOOD: "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
+        ❌ BAD: "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}" (tests too much)
+        
+        ADVANCED CLOZE PRINCIPLES:
+        
+        ❌ AVOID: "Tamoxifen for {{c1::premenopausal}}, AIs for {{c2::postmenopausal}}" 
+        → Problem: c2 makes c1 obvious (binary choice)
+        ✅ BETTER: "Tamoxifen is preferred for {{c1::premenopausal}} women, AIs for {{c1::postmenopausal}} women"
+        → Both use c1 since they test the same concept
+        
+        ❌ POOR: "Adjuvant therapy is recommended for {{c1::all}} ER-positive cancers"
+        → Only tests "all" vs "some" - too simple
+        ✅ BETTER: "Adjuvant {{c1::endocrine}} therapy for {{c2::ER-positive}} early breast cancer is given for {{c3::5 years}}"
+        → Tests therapy type, receptor status, and duration
+        
+        ❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
+        → Misses key definitional fact
+        ✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
+        → Tests both definition and prognosis
+        
+        PERCENTAGES: Avoid testing exact percentages unless clinically critical
+        ❌ AVOID: "This occurs in {{c1::15-20%}} of patients"
+        ✅ BETTER: "{{c1::Condition X}} occurs in 15-20% of patients" OR "Condition X is {{c1::common}}, affecting 15-20%"
+        ✅ EXCEPTION: Critical percentages like "BRCA1 mutations → {{c1::60-80%}} lifetime risk"
+        
+        For EACH slide, extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture).
+        
+        SKIP slides that only contain:
+        - Title/topic announcements
+        - Learning objectives/outcomes lists
+        - Lecture outlines or agendas
+        - Speaker introductions
+        - References/bibliography
         
         FOCUS on creating cards for:
         - Core pathophysiology and disease mechanisms
@@ -478,6 +599,16 @@ class MedicalAnkiGenerator:
         - Comparative effectiveness
         - Practical clinical applications
         
+        ENSURE each card:
+        - Can be understood without seeing the original lecture
+        - Has specific, unambiguous cloze deletions
+        - Tests one clear concept per cloze
+        - Provides enough context to identify the answer
+        - Tests ALL key facts (definitions, mechanisms, effects, durations)
+        - Uses same cloze number (c1) for related binary/mutually exclusive choices
+        - Avoids overly simple clozes like "all" vs "some"
+        - Avoids testing exact percentages unless clinically critical (prefer testing the subject or using "common/rare")
+        
         {cloze_instruction}
         
         Return a JSON array with one object per slide:
@@ -486,7 +617,7 @@ class MedicalAnkiGenerator:
             "page_num": 1,
             "cards": [
               {{
-                "text": "{{{{c1::Metformin}}}} is first-line for T2DM because it {{{{c2::doesn't cause hypoglycemia}}}}",
+                "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is first-line because it {{{{c2::doesn't cause hypoglycemia}}}}",
                 "facts": ["Metformin", "doesn't cause hypoglycemia"],
                 "context": "Essential diabetes management knowledge",
                 "clinical_relevance": "Check renal function before prescribing"
@@ -496,7 +627,7 @@ class MedicalAnkiGenerator:
         ]
         
         IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
-        Make cards concise, focusing on PRACTICAL MEDICAL KNOWLEDGE students will use in clinical practice."""
+        Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
         
         content = [{"type": "text", "text": prompt}] + slides_content
         
@@ -636,28 +767,78 @@ CRITICAL INSTRUCTIONS:
 1. ALL cards MUST remain in cloze deletion format {cloze_format_instruction}
 2. PRESERVE the cloze deletion syntax exactly - do not convert to Q&A format
 3. Each refined card must have at least one cloze deletion
-4. PROVIDE DETAILED JUSTIFICATION for every card that is removed, merged, or significantly modified
+4. Cards will be reviewed WITHOUT lecture context - ensure self-contained clarity
 5. Keep content at MEDICAL STUDENT level - practical knowledge over specialist minutiae
+
+⚠️ CRITICAL: MAINTAIN CLOZE DELETION QUALITY ⚠️
+The original cards follow good cloze deletion patterns. When refining, you MUST preserve these qualities:
+
+GOOD PATTERNS TO MAINTAIN:
+✅ "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}" 
+   - Specific anatomy is cloze deleted, context remains clear
+✅ "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
+   - Full context provided, only key fact is hidden
+✅ "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
+   - Multiple specific facts tested separately
+✅ "Metastatic ER+ cancer recurs {{{{c1::5-15 years}}}} post-diagnosis and metastasizes to {{{{c2::bone}}}}"
+   - Two disparate facts as separate clozes
+
+BAD PATTERNS TO AVOID CREATING:
+❌ "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}"
+   - Too much hidden, becomes a guessing game
+❌ "The fluid shouldn't contain {{{{c1::malignant}}}} cells"
+   - Lacks context - which fluid?
+❌ "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}"
+   - Tests multiple concepts at once
+❌ "Tamoxifen for {{{{c1::premenopausal}}}}, AIs for {{{{c2::postmenopausal}}}}"
+   - c2 reveals c1 (binary choice) - use same cloze number instead
+❌ "Therapy is recommended for {{{{c1::all}}}} ER+ cancers"
+   - Too simple, only tests "all" vs "some"
+❌ "Early breast cancer is {{{{c1::potentially curable}}}}"
+   - Misses key definitional facts about location/spread
+
+REFINEMENT RULES:
+1. If a card already has good cloze patterns, DO NOT make clozes more ambiguous
+2. If a card lacks context, ADD context rather than hiding more information
+3. If a cloze is too broad, SPLIT it into smaller, specific clozes
+4. NEVER combine multiple small clozes into one large ambiguous cloze
+5. PRESERVE the self-contained nature of cards - they must work without lecture context
+6. For binary/mutually exclusive choices (pre/post-menopausal), use SAME cloze number
+7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations)
+8. Avoid trivial clozes - test meaningful medical knowledge
+9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
 
 Review these {len(cards_for_review)} cloze deletion flashcards and optimize them by:
 
-1. MAINTAINING cloze format while improving clarity
-2. MERGING redundant cards that test the same concept
-3. SPLITTING overly complex cards
-4. REMOVING:
+1. MAINTAINING good cloze patterns - don't make them more ambiguous
+2. ENSURING each card remains self-contained and understandable
+3. FIXING only genuinely ambiguous cloze deletions
+4. ADDING context where needed rather than hiding information
+5. MERGING only truly redundant cards
+6. REMOVING only:
+   - Cards about titles, objectives, or outlines themselves
+   - Cards with unfixable ambiguity
    - Overly specialized technical details
    - Specific research study names/authors (unless landmark)
    - Exact dosing/technical parameters (unless critical safety info)
+   - Research methodology minutiae
    - Historical trivia without clinical relevance
    - Subspecialty procedural minutiae
-5. EMPHASIZING:
+7. PRESERVING:
+   - Specific, focused cloze deletions
+   - Clear context around clozes
+   - Self-contained card structure
+   - Learning outcomes focus
+8. EMPHASIZING:
    - Clinical reasoning and decision-making
    - Comparative effectiveness (why choose A over B)
    - Practical applications in general practice
    - Key safety considerations
    - First-line approaches
-6. ADDING clinical pearls that help with real patient care
-7. ENSURING medical accuracy while keeping appropriate depth
+   - "Why" and "when" rather than exact numbers
+   - Clinical decision pathways
+9. ADDING clinical pearls that help with real patient care
+10. ENSURING medical accuracy while keeping appropriate depth
 
 Current flashcards:
 {json.dumps(cards_for_review, indent=2)}
@@ -667,38 +848,70 @@ Return a JSON object with TWO arrays:
   "refined_cards": [
     {{
       "slide": 1,
-      "text": "{{{{c1::Peristalsis}}}} is the {{{{c2::rhythmic contraction}}}} of smooth muscle",
-      "facts": ["Peristalsis", "rhythmic contraction"],
-      "context": "Key GI physiology",
-      "clinical_relevance": "Absent in ileus",
-      "original_indices": [0]  // Which original cards this came from
+      "text": "In hereditary breast cancer, {{{{c1::BRCA1}}}} mutations increase lifetime risk to {{{{c2::60-80%}}}}",
+      "facts": ["BRCA1", "60-80%"],
+      "context": "Key genetic risk factor for breast cancer screening decisions",
+      "clinical_relevance": "Indicates need for enhanced surveillance or prophylactic measures",
+      "original_indices": [0]
     }}
   ],
   "decisions": [
     {{
       "action": "removed",
-      "original_index": 5,
-      "original_text": "The original card text here",
-      "reason": "Detailed explanation of why this card was removed (e.g., 'Low-yield historical fact not tested in modern exams')"
+      "original_index": 1,
+      "original_text": "This lecture focuses on the {{{{c1::treatment of hormone-receptor-positive breast cancer}}}}",
+      "reason": "Tests the lecture title/topic announcement rather than medical facts"
     }},
     {{
-      "action": "merged",
-      "original_indices": [10, 11],
-      "original_texts": ["Card 10 text", "Card 11 text"],
-      "merged_into_index": 10,
-      "reason": "Both cards tested the same concept of X, merged for efficiency"
+      "action": "removed",
+      "original_index": 2,
+      "original_text": "A key learning objective is to explain the benefit of {{{{c1::tamoxifen}}}}",
+      "reason": "Tests the learning objective statement itself, not the actual medical content"
+    }},
+    {{
+      "action": "removed",
+      "original_index": 5,
+      "original_text": "The gene causes {{{{c1::increased risk}}}}",
+      "reason": "Ambiguous - 'the gene' lacks specific context, 'increased risk' needs quantification"
+    }},
+    {{
+      "action": "preserved",
+      "original_index": 2,
+      "original_text": "BRCA1 mutations are found in {{{{c1::5-10%}}}} of breast cancers",
+      "reason": "Good cloze pattern - specific fact with clear context, keeping as-is"
+    }},
+    {{
+      "action": "modified", 
+      "original_index": 3,
+      "original_text": "Treatment includes {{{{c1::chemotherapy}}}}",
+      "new_text": "First-line treatment for HER2+ breast cancer includes {{{{c1::trastuzumab}}}} with {{{{c2::chemotherapy}}}}",
+      "reason": "Added specific context (HER2+) to make card self-contained, split into two clozes"
+    }},
+    {{
+      "action": "modified",
+      "original_index": 11,
+      "original_text": "Tamoxifen for premenopausal, AIs for postmenopausal women",
+      "new_text": "Tamoxifen is preferred for {{{{c1::premenopausal}}}} women, AIs for {{{{c1::postmenopausal}}}} women",
+      "reason": "Used same cloze number (c1) for both since they test the same concept (menopause status) and are mutually exclusive"
     }},
     {{
       "action": "modified",
       "original_index": 15,
-      "original_text": "Original text",
-      "new_text": "Modified text",
-      "reason": "Clarified ambiguous wording and added specific values"
+      "original_text": "Adjuvant therapy is recommended for {{{{c1::all}}}} ER-positive cancers",
+      "new_text": "Adjuvant {{{{c1::endocrine}}}} therapy for {{{{c2::ER-positive}}}} early breast cancer is given for {{{{c3::5 years}}}} (10 years if high-risk)",
+      "reason": "Expanded to test meaningful facts (therapy type, receptor, duration) instead of just 'all' vs 'some'"
+    }},
+    {{
+      "action": "modified",
+      "original_index": 20,
+      "original_text": "Early breast cancer is {{{{c1::potentially curable}}}}",
+      "new_text": "Early breast cancer is confined to {{{{c1::breast ± axillary nodes}}}} and is {{{{c2::potentially curable}}}}",
+      "reason": "Added missing definitional fact about anatomical confinement - students need to know what defines 'early' stage"
     }}
   ]
 }}
 
-IMPORTANT: Every card that doesn't appear in refined_cards MUST have a decision entry explaining why."""
+⚠️ REMEMBER: The goal is to REFINE cards while MAINTAINING their good cloze deletion patterns. Do not make cards more ambiguous in the name of brevity. Each card must be answerable without having seen the lecture."""
 
         payload = {
             "model": "o3",
@@ -735,9 +948,9 @@ IMPORTANT: Every card that doesn't appear in refined_cards MUST have a decision 
                         "refined_count": len(refined_cards),
                         "decisions": decisions,
                         "summary": {
-                            "removed": len([d for d in decisions if d['action'] == 'removed']),
-                            "merged": len([d for d in decisions if d['action'] == 'merged']),
-                            "modified": len([d for d in decisions if d['action'] == 'modified'])
+                            "removed": len([d for d in decisions if d.get('action') == 'removed']),
+                            "merged": len([d for d in decisions if d.get('action') == 'merged']),
+                            "modified": len([d for d in decisions if d.get('action') == 'modified'])
                         }
                     }
                     
@@ -757,7 +970,11 @@ IMPORTANT: Every card that doesn't appear in refined_cards MUST have a decision 
                         f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                         f.write(f"Original cards: {total_original_cards}\n")
                         f.write(f"Refined cards: {len(refined_cards)}\n")
-                        f.write(f"Reduction: {total_original_cards - len(refined_cards)} cards ({(1 - len(refined_cards)/total_original_cards)*100:.1f}%)\n\n")
+                        if total_original_cards > 0:
+                            reduction_percent = (1 - len(refined_cards)/total_original_cards) * 100
+                            f.write(f"Reduction: {total_original_cards - len(refined_cards)} cards ({reduction_percent:.1f}%)\n\n")
+                        else:
+                            f.write(f"Reduction: 0 cards (0.0%)\n\n")
                         
                         f.write("DECISIONS:\n")
                         f.write("-"*60 + "\n\n")
@@ -815,9 +1032,11 @@ IMPORTANT: Every card that doesn't appear in refined_cards MUST have a decision 
                     return refined_list
                     
         except Exception as e:
-            self.logger.error(f"Refinement failed: {str(e)}")
+            self.logger.error(f"Refinement failed: {str(e)}", exc_info=True)
             print(f"❌ Refinement failed: {str(e)}")
             print("⚠️ Using original cards without refinement")
+            import traceback
+            traceback.print_exc()
         
         return all_cards_data
     
