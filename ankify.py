@@ -19,6 +19,157 @@ import genanki
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+
+class PromptTemplates:
+    """Centralized prompt templates to avoid duplication."""
+    
+    @staticmethod
+    def get_cloze_instruction(single_card_mode: bool) -> str:
+        """Get the appropriate cloze instruction based on card mode."""
+        if single_card_mode:
+            return """IMPORTANT: Use ONLY {{c1::}} for ALL cloze deletions (this creates a single card with multiple blanks revealed simultaneously)."""
+        return """IMPORTANT: Create cloze deletions using {{c1::}}, {{c2::}}, {{c3::}} etc. for different blanks within the same card."""
+    
+    @staticmethod
+    def get_common_rules() -> str:
+        """Get common card creation rules used in both analysis and critique."""
+        return """
+CRITICAL RULES FOR CARD CREATION:
+1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
+2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
+3. Focus on learning outcomes and objectives if shown on the slide
+4. DO NOT create cards about the title, learning objectives, or outline themselves
+
+WHAT NOT TO TEST:
+❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
+❌ "A key learning objective is to explain {{c1::tamoxifen benefit}}" (tests the objective, not the content)
+❌ "Today we will discuss {{c1::three types of breast cancer}}" (tests outline, not facts)
+
+Instead, use learning objectives to GUIDE what medical facts to extract from content slides."""
+    
+    @staticmethod
+    def get_cloze_examples() -> str:
+        """Get good vs bad cloze examples."""
+        return """
+GOOD vs BAD CLOZE EXAMPLES:
+✅ GOOD: "The IVC is formed by the junction of the {{c1::left and right common iliac veins}}"
+❌ BAD: "The IVC is {{c1::formed by the junction of the left and right common iliac veins}}" (too vague)
+
+✅ GOOD: "Malignant pericardial effusion should not contain {{c1::malignant}} cells"
+❌ BAD: "The fluid shouldn't contain {{c1::malignant}} cells" (which fluid?)
+
+✅ GOOD: "Lung cancer prognosis is poor when {{c1::T cells}} are {{c2::inactivated}}"
+❌ BAD: "Lung cancer prognosis is poor when {{c1::T cells are inactivated}}" (tests too much at once)"""
+    
+    @staticmethod
+    def get_advanced_principles() -> str:
+        """Get advanced cloze principles."""
+        return """
+ADVANCED CLOZE PRINCIPLES:
+
+❌ AVOID: "Tamoxifen for {{c1::premenopausal}}, AIs for {{c2::postmenopausal}}" 
+→ Problem: c2 makes c1 obvious (binary choice)
+✅ BETTER: "Tamoxifen is preferred for {{c1::premenopausal}} women, AIs for {{c1::postmenopausal}} women"
+→ Both use c1 since they test the same concept (menopause status for drug choice)
+
+❌ POOR: "Adjuvant therapy is recommended for {{c1::all}} ER-positive cancers"
+→ Only tests "all" vs "some" - too simple
+✅ BETTER: "Adjuvant {{c1::endocrine}} therapy for {{c2::ER-positive}} early breast cancer is given for {{c3::5 years}} (10 years if high-risk)"
+→ Tests therapy type, receptor status, and duration
+
+❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
+→ Misses key definitional fact
+✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
+→ Tests both definition and prognosis
+
+❌ SUPERFICIAL: "{{c1::Palbociclib}} blocks G1-to-S transition"
+→ Only tests drug name
+✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
+→ Tests drug class, example, mechanism, and effect"""
+    
+    @staticmethod
+    def get_percentage_guidelines() -> str:
+        """Get guidelines for handling percentages and statistics."""
+        return """
+PERCENTAGES AND STATISTICS:
+❌ AVOID: "BRCA1 mutations occur in {{c1::5-10%}} of breast cancers"
+→ Exact percentages are hard to remember and often change
+✅ BETTER: "{{c1::BRCA1}} mutations are found in 5-10% of breast cancers"
+→ Tests the gene name, not the percentage
+✅ OR: "BRCA1 mutations are {{c1::uncommon}}, occurring in 5-10% of breast cancers"
+→ Tests clinical significance rather than exact number
+✅ EXCEPTION: "BRCA1 mutations increase lifetime breast cancer risk to {{c1::60-80%}}"
+→ This percentage is clinically critical for counseling patients"""
+    
+    @staticmethod
+    def get_content_focus() -> str:
+        """Get guidelines for what content to focus on."""
+        return """
+Your task is to create flashcards appropriate for medical student level:
+
+1. Extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture)
+2. Create cloze deletion flashcards focusing on:
+   - Core pathophysiology and disease mechanisms
+   - Key clinical features and presentations
+   - First-line treatments and management principles
+   - Important differential diagnoses
+   - High-yield diagnostic approaches
+   - Clinical decision-making concepts
+   - Best practice guidelines (not minute details)
+   - Important contraindications and safety considerations
+
+3. SKIP slides that only contain:
+   - Title/topic announcements
+   - Learning objectives/outcomes lists
+   - Lecture outlines or agendas
+   - Speaker introductions
+   - References/bibliography
+
+4. AVOID creating cards for:
+   - Specific radiation doses or technical parameters
+   - Names/authors of individual studies (unless landmark trials)
+   - Overly specialized procedural details
+   - Research methodology minutiae
+   - Historical facts unless clinically relevant
+   - Subspecialty-specific technical details
+
+5. ENSURE each card:
+   - Can be understood without seeing the original lecture
+   - Has specific, unambiguous cloze deletions
+   - Tests one clear concept per cloze
+   - Provides enough context to identify the answer
+   - Emphasizes "why" and "when" rather than exact numbers
+   - Focuses on clinical reasoning and decision pathways
+   - Highlights comparative effectiveness (Drug A vs Drug B)
+   - Includes practical clinical applications
+   - Tests ALL key facts in a statement (definitions, mechanisms, effects)
+   - Uses same cloze number (c1) when testing related binary choices
+   - Avoids overly simple clozes like "all" vs "some"
+   - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")"""
+    
+    @staticmethod
+    def get_json_format() -> str:
+        """Get the expected JSON format for responses."""
+        return """
+Format your response as a JSON array of flashcard objects, where each object has:
+- "text": The complete text with cloze deletions in {{c1::answer}} format (can have multiple clozes {{c1::}}, {{c2::}}, etc.)
+- "facts": Array of the key facts being tested
+- "context": Brief context about why this is important FOR A MEDICAL STUDENT
+- "clinical_relevance": Optional field for clinical pearls or practical applications
+
+Example:
+[
+  {
+    "text": "In type 2 diabetes, {{c1::Metformin}} is the first-line medication because it {{c2::does not cause hypoglycemia}} and has {{c3::cardiovascular benefits}}",
+    "facts": ["Metformin", "does not cause hypoglycemia", "cardiovascular benefits"],
+    "context": "Essential knowledge for diabetes management in primary care",
+    "clinical_relevance": "Always check renal function before prescribing"
+  }
+]
+
+Create concise, self-contained cards testing PRACTICAL MEDICAL KNOWLEDGE with clear, unambiguous cloze deletions."""
+
+
 class MedicalAnkiGenerator:
     def __init__(self, openai_api_key: str, single_card_mode: bool = False, 
                  custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None,
@@ -64,17 +215,15 @@ class MedicalAnkiGenerator:
         log_dir = Path("anki_logs")
         log_dir.mkdir(exist_ok=True)
         
-        # Create timestamp for log file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = log_dir / f"ankify_log_{timestamp}.log"
         
-        # Configure logging
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler(log_file),
-                logging.StreamHandler()  # Also output to console
+                logging.StreamHandler()
             ]
         )
         self.logger = logging.getLogger(__name__)
@@ -178,16 +327,13 @@ class MedicalAnkiGenerator:
             return color
         
         try:
-            # Convert hex to RGB
             color = color.lstrip('#')
             r, g, b = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
             
-            # Adjust brightness
             r = min(255, int(r * factor))
             g = min(255, int(g * factor))
             b = min(255, int(b * factor))
             
-            # Convert back to hex
             return f'#{r:02x}{g:02x}{b:02x}'
         except:
             return color
@@ -212,18 +358,15 @@ class MedicalAnkiGenerator:
         """Convert PIL Image to base64 string with optional compression."""
         buffered = io.BytesIO()
         
-        # Get compression settings
         if apply_compression and self.compression_level != "none":
             settings = self.compression_settings[self.compression_level]
             max_size = settings["max_size"]
             quality = settings["quality"]
             img_format = settings["format"]
             
-            # Resize if larger than max_size
             if max(image.size) > max_size:
                 image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
             
-            # Convert RGBA to RGB if saving as JPEG
             if img_format == "JPEG" and image.mode in ('RGBA', 'LA', 'P'):
                 rgb_image = Image.new('RGB', image.size, (255, 255, 255))
                 if image.mode == 'P':
@@ -238,7 +381,6 @@ class MedicalAnkiGenerator:
                 buffered = io.BytesIO()
                 image.save(buffered, format="PNG")
         else:
-            # Original behavior - no compression
             max_size = 1024
             if max(image.size) > max_size:
                 image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
@@ -248,45 +390,41 @@ class MedicalAnkiGenerator:
     
     def escape_html_but_preserve_formatting(self, text: str) -> str:
         """Escape HTML characters but preserve our formatting tags."""
-        # First, escape HTML entities
         text = html.escape(text, quote=False)
         
-        # Then restore our specific formatting tags
-        # Restore bold tags
-        text = text.replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>')
-        text = text.replace('&lt;strong&gt;', '<strong>').replace('&lt;/strong&gt;', '</strong>')
+        # Restore specific formatting tags
+        replacements = [
+            ('&lt;b&gt;', '<b>'), ('&lt;/b&gt;', '</b>'),
+            ('&lt;strong&gt;', '<strong>'), ('&lt;/strong&gt;', '</strong>'),
+            ('&lt;i&gt;', '<i>'), ('&lt;/i&gt;', '</i>'),
+            ('&lt;em&gt;', '<em>'), ('&lt;/em&gt;', '</em>')
+        ]
         
-        # Restore italic tags
-        text = text.replace('&lt;i&gt;', '<i>').replace('&lt;/i&gt;', '</i>')
-        text = text.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
+        for old, new in replacements:
+            text = text.replace(old, new)
         
         return text
     
     def convert_to_single_card_format(self, text: str) -> str:
         """Convert multiple cloze numbers (c1, c2, c3...) to all c1 for single card mode."""
         if self.single_card_mode:
-            # Replace all {{c[0-9]+:: with {{c1::
             return re.sub(r'\{\{c\d+::', '{{c1::', text)
         return text
     
     def add_bold_formatting(self, text: str) -> str:
         """Add bold formatting to key medical terms not in cloze deletions."""
-        # List of common medical term patterns to bold
         key_patterns = [
             r'\b(diagnosis|treatment|syndrome|disease|disorder|symptom|sign|pathophysiology|mechanism|receptor|enzyme|hormone|drug|medication|dose|contraindication|indication|complication|prognosis|etiology|differential|investigation|management)\b',
             r'\b(acute|chronic|primary|secondary|benign|malignant|systemic|focal|diffuse|bilateral|unilateral)\b',
             r'\b(\d+\s*(?:mg|mcg|g|kg|mL|L|mmHg|bpm|/min|/hr|/day|%|mmol|mg/dL))\b'
         ]
         
-        # Don't bold text that's already in cloze deletions
         def replace_if_not_in_cloze(match):
             term = match.group(0)
-            # Check if this term is within a cloze deletion
             start = match.start()
-            # Simple check - could be made more sophisticated
             before_text = text[:start]
             if before_text.count('{{') > before_text.count('}}'):
-                return term  # Inside cloze, don't bold
+                return term
             return f'<b>{term}</b>'
         
         for pattern in key_patterns:
@@ -294,132 +432,106 @@ class MedicalAnkiGenerator:
         
         return text
     
+    def _build_analysis_prompt(self, page_num: int, lecture_name: str) -> str:
+        """Build the analysis prompt using centralized templates."""
+        cloze_instruction = PromptTemplates.get_cloze_instruction(self.single_card_mode)
+        
+        return f"""You are analyzing slide {page_num} from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
+        
+{PromptTemplates.get_common_rules()}
+
+{PromptTemplates.get_cloze_examples()}
+
+{PromptTemplates.get_advanced_principles()}
+
+{PromptTemplates.get_percentage_guidelines()}
+
+{PromptTemplates.get_content_focus()}
+
+{cloze_instruction}
+
+{PromptTemplates.get_json_format()}"""
+    
+    def _build_batch_analysis_prompt(self, num_slides: int, lecture_name: str) -> str:
+        """Build the batch analysis prompt using centralized templates."""
+        cloze_instruction = PromptTemplates.get_cloze_instruction(self.single_card_mode)
+        
+        return f"""You are analyzing {num_slides} slides from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
+        
+{PromptTemplates.get_common_rules()}
+
+{PromptTemplates.get_cloze_examples()}
+
+{PromptTemplates.get_advanced_principles()}
+
+{PromptTemplates.get_percentage_guidelines()}
+
+For EACH slide, extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture).
+
+SKIP slides that only contain:
+- Title/topic announcements
+- Learning objectives/outcomes lists
+- Lecture outlines or agendas
+- Speaker introductions
+- References/bibliography
+
+FOCUS on creating cards for:
+- Core pathophysiology and disease mechanisms
+- Key clinical features and presentations
+- First-line treatments and management principles
+- Important differential diagnoses
+- High-yield diagnostic approaches
+- Clinical decision-making concepts
+- Best practice guidelines (not minute details)
+- Important contraindications and safety
+
+AVOID cards for:
+- Specific radiation doses or technical parameters
+- Names/authors of individual studies (unless landmark trials)
+- Overly specialized procedural details
+- Research methodology minutiae
+- Subspecialty-specific technical details
+
+Emphasize:
+- "Why" and "when" rather than exact numbers
+- Clinical reasoning and decision pathways
+- Comparative effectiveness
+- Practical clinical applications
+
+ENSURE each card:
+- Can be understood without seeing the original lecture
+- Has specific, unambiguous cloze deletions
+- Tests one clear concept per cloze
+- Provides enough context to identify the answer
+- Tests ALL key facts (definitions, mechanisms, effects, durations)
+- Uses same cloze number (c1) for related binary/mutually exclusive choices
+- Avoids overly simple clozes like "all" vs "some"
+- Avoids testing exact percentages unless clinically critical (prefer testing the subject or using "common/rare")
+
+{cloze_instruction}
+
+Return a JSON array with one object per slide:
+[
+  {{
+    "page_num": 1,
+    "cards": [
+      {{
+        "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is first-line because it {{{{c2::doesn't cause hypoglycemia}}}}",
+        "facts": ["Metformin", "doesn't cause hypoglycemia"],
+        "context": "Essential diabetes management knowledge",
+        "clinical_relevance": "Check renal function before prescribing"
+      }}
+    ]
+  }}
+]
+
+IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
+Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
+    
     def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
         """Send slide image to OpenAI API for analysis with retry logic."""
         base64_image = self.image_to_base64(image)
-        
-        cloze_instruction = """IMPORTANT: Create cloze deletions using {{c1::}}, {{c2::}}, {{c3::}} etc. for different blanks within the same card."""
-        if self.single_card_mode:
-            cloze_instruction = """IMPORTANT: Use ONLY {{c1::}} for ALL cloze deletions (this creates a single card with multiple blanks revealed simultaneously)."""
-        
-        prompt = f"""You are analyzing slide {page_num} from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
-        
-        CRITICAL RULES FOR CARD CREATION:
-        1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
-        2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
-        3. Focus on learning outcomes and objectives if shown on the slide
-        4. DO NOT create cards about the title, learning objectives, or outline themselves
-        
-        WHAT NOT TO TEST:
-        ❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
-        ❌ "A key learning objective is to explain {{c1::tamoxifen benefit}}" (tests the objective, not the content)
-        ❌ "Today we will discuss {{c1::three types of breast cancer}}" (tests outline, not facts)
-        
-        Instead, use learning objectives to GUIDE what medical facts to extract from content slides.
-        
-        GOOD vs BAD CLOZE EXAMPLES:
-        ✅ GOOD: "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}"
-        ❌ BAD: "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}" (too vague)
-        
-        ✅ GOOD: "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
-        ❌ BAD: "The fluid shouldn't contain {{{{c1::malignant}}}} cells" (which fluid?)
-        
-        ✅ GOOD: "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
-        ❌ BAD: "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}" (tests too much at once)
-        
-        ADVANCED CLOZE PRINCIPLES:
-        
-        ❌ AVOID: "Tamoxifen for {{c1::premenopausal}}, AIs for {{c2::postmenopausal}}" 
-        → Problem: c2 makes c1 obvious (binary choice)
-        ✅ BETTER: "Tamoxifen is preferred for {{c1::premenopausal}} women, AIs for {{c1::postmenopausal}} women"
-        → Both use c1 since they test the same concept (menopause status for drug choice)
-        
-        ❌ POOR: "Adjuvant therapy is recommended for {{c1::all}} ER-positive cancers"
-        → Only tests "all" vs "some" - too simple
-        ✅ BETTER: "Adjuvant {{c1::endocrine}} therapy for {{c2::ER-positive}} early breast cancer is given for {{c3::5 years}} (10 years if high-risk)"
-        → Tests therapy type, receptor status, and duration
-        
-        ❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
-        → Misses key definitional fact
-        ✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
-        → Tests both definition and prognosis
-        
-        ❌ SUPERFICIAL: "{{c1::Palbociclib}} blocks G1-to-S transition"
-        → Only tests drug name
-        ✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
-        → Tests drug class, example, mechanism, and effect
-        
-        PERCENTAGES AND STATISTICS:
-        ❌ AVOID: "BRCA1 mutations occur in {{c1::5-10%}} of breast cancers"
-        → Exact percentages are hard to remember and often change
-        ✅ BETTER: "{{c1::BRCA1}} mutations are found in 5-10% of breast cancers"
-        → Tests the gene name, not the percentage
-        ✅ OR: "BRCA1 mutations are {{c1::uncommon}}, occurring in 5-10% of breast cancers"
-        → Tests clinical significance rather than exact number
-        ✅ EXCEPTION: "BRCA1 mutations increase lifetime breast cancer risk to {{c1::60-80%}}"
-        → This percentage is clinically critical for counseling patients
-        
-        Your task is to create flashcards appropriate for medical student level:
-        
-        1. Extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture)
-        2. Create cloze deletion flashcards focusing on:
-           - Core pathophysiology and disease mechanisms
-           - Key clinical features and presentations
-           - First-line treatments and management principles
-           - Important differential diagnoses
-           - High-yield diagnostic approaches
-           - Clinical decision-making concepts
-           - Best practice guidelines (not minute details)
-           - Important contraindications and safety considerations
-        
-        3. SKIP slides that only contain:
-           - Title/topic announcements
-           - Learning objectives/outcomes lists
-           - Lecture outlines or agendas
-           - Speaker introductions
-           - References/bibliography
-        
-        4. AVOID creating cards for:
-           - Specific radiation doses or technical parameters
-           - Names/authors of individual studies (unless landmark trials)
-           - Overly specialized procedural details
-           - Research methodology minutiae
-           - Historical facts unless clinically relevant
-           - Subspecialty-specific technical details
-        
-        5. ENSURE each card:
-           - Can be understood without seeing the original lecture
-           - Has specific, unambiguous cloze deletions
-           - Tests one clear concept per cloze
-           - Provides enough context to identify the answer
-           - Emphasizes "why" and "when" rather than exact numbers
-           - Focuses on clinical reasoning and decision pathways
-           - Highlights comparative effectiveness (Drug A vs Drug B)
-           - Includes practical clinical applications
-           - Tests ALL key facts in a statement (definitions, mechanisms, effects)
-           - Uses same cloze number (c1) when testing related binary choices
-           - Avoids overly simple clozes like "all" vs "some"
-           - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
-        
-        {cloze_instruction}
-        
-        Format your response as a JSON array of flashcard objects, where each object has:
-        - "text": The complete text with cloze deletions in {{c1::answer}} format (can have multiple clozes {{c1::}}, {{c2::}}, etc.)
-        - "facts": Array of the key facts being tested
-        - "context": Brief context about why this is important FOR A MEDICAL STUDENT
-        - "clinical_relevance": Optional field for clinical pearls or practical applications
-        
-        Example:
-        [
-          {{
-            "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is the first-line medication because it {{{{c2::does not cause hypoglycemia}}}} and has {{{{c3::cardiovascular benefits}}}}",
-            "facts": ["Metformin", "does not cause hypoglycemia", "cardiovascular benefits"],
-            "context": "Essential knowledge for diabetes management in primary care",
-            "clinical_relevance": "Always check renal function before prescribing"
-          }}
-        ]
-        
-        Create concise, self-contained cards testing PRACTICAL MEDICAL KNOWLEDGE with clear, unambiguous cloze deletions."""
+        prompt = self._build_analysis_prompt(page_num, lecture_name)
         
         payload = {
             "model": "o3",
@@ -427,16 +539,8 @@ class MedicalAnkiGenerator:
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{base64_image}"
-                            }
-                        }
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
                     ]
                 }
             ],
@@ -462,17 +566,12 @@ class MedicalAnkiGenerator:
                     json_match = re.search(r'\[[\s\S]*\]', content)
                     if json_match:
                         cards_data = json.loads(json_match.group())
-                        # Convert to single card format if needed
                         if self.single_card_mode:
                             for card in cards_data:
                                 card['text'] = self.convert_to_single_card_format(card['text'])
-                        # Add bold formatting to key terms
                         for card in cards_data:
                             card['text'] = self.add_bold_formatting(card['text'])
-                        return {
-                            "page_num": page_num,
-                            "cards": cards_data
-                        }
+                        return {"page_num": page_num, "cards": cards_data}
                 elif response.status_code == 429:
                     wait_time = int(response.headers.get('Retry-After', 60))
                     print(f"\n  ⚠️ Rate limited. Waiting {wait_time}s...", end='', flush=True)
@@ -495,140 +594,19 @@ class MedicalAnkiGenerator:
         slides_data = []
         for img, page_num in images:
             base64_image = self.image_to_base64(img, apply_compression=True)
-            slides_data.append({
-                "page_num": page_num,
-                "base64": base64_image
-            })
+            slides_data.append({"page_num": page_num, "base64": base64_image})
             
         self.logger.info(f"Prepared {len(slides_data)} images for batch processing")
-        
-        cloze_instruction = """IMPORTANT: Create cloze deletions using {{c1::}}, {{c2::}}, {{c3::}} etc. for different blanks within the same card."""
-        if self.single_card_mode:
-            cloze_instruction = """IMPORTANT: Use ONLY {{c1::}} for ALL cloze deletions (this creates a single card with multiple blanks revealed simultaneously)."""
         
         # Build prompt with all slides
         slides_content = []
         for slide in slides_data:
-            slides_content.append({
-                "type": "text",
-                "text": f"SLIDE {slide['page_num']}:"
-            })
-            slides_content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{slide['base64']}"
-                }
-            })
+            slides_content.extend([
+                {"type": "text", "text": f"SLIDE {slide['page_num']}:"},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{slide['base64']}"}}
+            ])
         
-        prompt = f"""You are analyzing {len(images)} slides from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
-        
-        CRITICAL RULES FOR CARD CREATION:
-        1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
-        2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
-        3. Focus on learning outcomes and objectives if shown on slides
-        4. DO NOT create cards about the title, learning objectives, or outline themselves
-        
-        WHAT NOT TO TEST:
-        ❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
-        ❌ "A key learning objective is to explain {{c1::tamoxifen benefit}}" (tests the objective, not the content)
-        ❌ "Today we will discuss {{c1::three types of breast cancer}}" (tests outline, not facts)
-        
-        Instead, use learning objectives to GUIDE what medical facts to extract from content slides.
-        
-        GOOD vs BAD CLOZE EXAMPLES:
-        ✅ GOOD: "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}"
-        ❌ BAD: "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}" (too vague)
-        
-        ✅ GOOD: "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
-        ❌ BAD: "The fluid shouldn't contain {{{{c1::malignant}}}} cells" (which fluid?)
-        
-        ✅ GOOD: "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
-        ❌ BAD: "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}" (tests too much)
-        
-        ADVANCED CLOZE PRINCIPLES:
-        
-        ❌ AVOID: "Tamoxifen for {{c1::premenopausal}}, AIs for {{c2::postmenopausal}}" 
-        → Problem: c2 makes c1 obvious (binary choice)
-        ✅ BETTER: "Tamoxifen is preferred for {{c1::premenopausal}} women, AIs for {{c1::postmenopausal}} women"
-        → Both use c1 since they test the same concept
-        
-        ❌ POOR: "Adjuvant therapy is recommended for {{c1::all}} ER-positive cancers"
-        → Only tests "all" vs "some" - too simple
-        ✅ BETTER: "Adjuvant {{c1::endocrine}} therapy for {{c2::ER-positive}} early breast cancer is given for {{c3::5 years}}"
-        → Tests therapy type, receptor status, and duration
-        
-        ❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
-        → Misses key definitional fact
-        ✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
-        → Tests both definition and prognosis
-        
-        PERCENTAGES: Avoid testing exact percentages unless clinically critical
-        ❌ AVOID: "This occurs in {{c1::15-20%}} of patients"
-        ✅ BETTER: "{{c1::Condition X}} occurs in 15-20% of patients" OR "Condition X is {{c1::common}}, affecting 15-20%"
-        ✅ EXCEPTION: Critical percentages like "BRCA1 mutations → {{c1::60-80%}} lifetime risk"
-        
-        For EACH slide, extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture).
-        
-        SKIP slides that only contain:
-        - Title/topic announcements
-        - Learning objectives/outcomes lists
-        - Lecture outlines or agendas
-        - Speaker introductions
-        - References/bibliography
-        
-        FOCUS on creating cards for:
-        - Core pathophysiology and disease mechanisms
-        - Key clinical features and presentations
-        - First-line treatments and management principles
-        - Important differential diagnoses
-        - High-yield diagnostic approaches
-        - Clinical decision-making concepts
-        - Best practice guidelines (not minute details)
-        - Important contraindications and safety
-        
-        AVOID cards for:
-        - Specific radiation doses or technical parameters
-        - Names/authors of individual studies (unless landmark trials)
-        - Overly specialized procedural details
-        - Research methodology minutiae
-        - Subspecialty-specific technical details
-        
-        Emphasize:
-        - "Why" and "when" rather than exact numbers
-        - Clinical reasoning and decision pathways
-        - Comparative effectiveness
-        - Practical clinical applications
-        
-        ENSURE each card:
-        - Can be understood without seeing the original lecture
-        - Has specific, unambiguous cloze deletions
-        - Tests one clear concept per cloze
-        - Provides enough context to identify the answer
-        - Tests ALL key facts (definitions, mechanisms, effects, durations)
-        - Uses same cloze number (c1) for related binary/mutually exclusive choices
-        - Avoids overly simple clozes like "all" vs "some"
-        - Avoids testing exact percentages unless clinically critical (prefer testing the subject or using "common/rare")
-        
-        {cloze_instruction}
-        
-        Return a JSON array with one object per slide:
-        [
-          {{
-            "page_num": 1,
-            "cards": [
-              {{
-                "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is first-line because it {{{{c2::doesn't cause hypoglycemia}}}}",
-                "facts": ["Metformin", "doesn't cause hypoglycemia"],
-                "context": "Essential diabetes management knowledge",
-                "clinical_relevance": "Check renal function before prescribing"
-              }}
-            ]
-          }}
-        ]
-        
-        IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
-        Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
-        
+        prompt = self._build_batch_analysis_prompt(len(images), lecture_name)
         content = [{"type": "text", "text": prompt}] + slides_content
         
         payload = {
@@ -651,7 +629,7 @@ class MedicalAnkiGenerator:
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=300  # Longer timeout for batch
+                    timeout=300
                 )
                 
                 if response.status_code == 200:
@@ -659,7 +637,6 @@ class MedicalAnkiGenerator:
                     content = response_json['choices'][0]['message']['content']
                     self.logger.info(f"Received response of length: {len(content)}")
                     
-                    # Try to extract JSON from response
                     json_match = re.search(r'\[[\s\S]*\]', content)
                     if json_match:
                         try:
@@ -673,14 +650,9 @@ class MedicalAnkiGenerator:
                             
                             if missing_slides:
                                 self.logger.warning(f"Missing slides in response: {missing_slides}")
-                                # Add empty entries for missing slides
                                 for slide_num in missing_slides:
-                                    all_slides_data.append({
-                                        "page_num": slide_num,
-                                        "cards": []
-                                    })
+                                    all_slides_data.append({"page_num": slide_num, "cards": []})
                             
-                            # Sort by page number
                             all_slides_data.sort(key=lambda x: x.get('page_num', 0))
                             
                             # Process and format the results
@@ -728,10 +700,10 @@ class MedicalAnkiGenerator:
         
         print(f"\n❌ Batch processing failed after {max_retries} attempts")
         self.logger.error("Batch processing failed completely")
-        return []  # Return empty list to trigger fallback
+        return []
     
     def critique_and_refine_cards(self, all_cards_data: List[Dict], lecture_name: str) -> List[Dict]:
-        """Use o3 model to critique and refine all cards for optimal learning."""
+        """Use AI model to critique and refine all cards for optimal learning."""
         print("\n🔬 Starting advanced critique and refinement pass...")
         self.logger.info(f"Starting critique for lecture: {lecture_name}")
         
@@ -759,9 +731,51 @@ class MedicalAnkiGenerator:
         print(f"📊 Analyzing {total_original_cards} cards for optimization...")
         self.logger.info(f"Total cards to analyze: {total_original_cards}")
         
+        prompt = self._build_critique_prompt(lecture_name, cards_for_review)
+        
+        payload = {
+            "model": "o3",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_completion_tokens": 100000
+        }
+        
+        try:
+            response = self.session.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=self.headers,
+                json=payload,
+                timeout=300
+            )
+            
+            if response.status_code == 200:
+                content = response.json()['choices'][0]['message']['content']
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    result = json.loads(json_match.group())
+                    refined_cards = result.get('refined_cards', [])
+                    decisions = result.get('decisions', [])
+                    
+                    # Save and process refinement results
+                    self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
+                                             refined_cards, decisions)
+                    
+                    # Validate and organize refined cards
+                    return self._process_refined_cards(refined_cards)
+                    
+        except Exception as e:
+            self.logger.error(f"Refinement failed: {str(e)}", exc_info=True)
+            print(f"❌ Refinement failed: {str(e)}")
+            print("⚠️ Using original cards without refinement")
+            import traceback
+            traceback.print_exc()
+        
+        return all_cards_data
+    
+    def _build_critique_prompt(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
+        """Build the critique prompt using centralized templates."""
         cloze_format_instruction = "using {{c1::}}, {{c2::}}, etc." if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
         
-        prompt = f"""You are an expert medical educator reviewing cloze deletion flashcards from a lecture on "{lecture_name}".
+        return f"""You are an expert medical educator reviewing cloze deletion flashcards from a lecture on "{lecture_name}".
 
 CRITICAL INSTRUCTIONS:
 1. ALL cards MUST remain in cloze deletion format {cloze_format_instruction}
@@ -773,29 +787,17 @@ CRITICAL INSTRUCTIONS:
 ⚠️ CRITICAL: MAINTAIN CLOZE DELETION QUALITY ⚠️
 The original cards follow good cloze deletion patterns. When refining, you MUST preserve these qualities:
 
-GOOD PATTERNS TO MAINTAIN:
-✅ "The IVC is formed by the junction of the {{{{c1::left and right common iliac veins}}}}" 
-   - Specific anatomy is cloze deleted, context remains clear
-✅ "Malignant pericardial effusion should not contain {{{{c1::malignant}}}} cells"
-   - Full context provided, only key fact is hidden
-✅ "Lung cancer prognosis is poor when {{{{c1::T cells}}}} are {{{{c2::inactivated}}}}"
-   - Multiple specific facts tested separately
+{PromptTemplates.get_cloze_examples()}
+
+GOOD PATTERNS TO MAINTAIN (Additional Examples):
 ✅ "Metastatic ER+ cancer recurs {{{{c1::5-15 years}}}} post-diagnosis and metastasizes to {{{{c2::bone}}}}"
    - Two disparate facts as separate clozes
 
-BAD PATTERNS TO AVOID CREATING:
-❌ "The IVC is {{{{c1::formed by the junction of the left and right common iliac veins}}}}"
-   - Too much hidden, becomes a guessing game
-❌ "The fluid shouldn't contain {{{{c1::malignant}}}} cells"
-   - Lacks context - which fluid?
-❌ "Lung cancer prognosis is poor when {{{{c1::T cells are inactivated}}}}"
-   - Tests multiple concepts at once
+BAD PATTERNS TO AVOID CREATING (Additional Examples):
 ❌ "Tamoxifen for {{{{c1::premenopausal}}}}, AIs for {{{{c2::postmenopausal}}}}"
    - c2 reveals c1 (binary choice) - use same cloze number instead
 ❌ "Therapy is recommended for {{{{c1::all}}}} ER+ cancers"
    - Too simple, only tests "all" vs "some"
-❌ "Early breast cancer is {{{{c1::potentially curable}}}}"
-   - Misses key definitional facts about location/spread
 
 REFINEMENT RULES:
 1. If a card already has good cloze patterns, DO NOT make clozes more ambiguous
@@ -863,182 +865,114 @@ Return a JSON object with TWO arrays:
       "reason": "Tests the lecture title/topic announcement rather than medical facts"
     }},
     {{
-      "action": "removed",
-      "original_index": 2,
-      "original_text": "A key learning objective is to explain the benefit of {{{{c1::tamoxifen}}}}",
-      "reason": "Tests the learning objective statement itself, not the actual medical content"
-    }},
-    {{
-      "action": "removed",
-      "original_index": 5,
-      "original_text": "The gene causes {{{{c1::increased risk}}}}",
-      "reason": "Ambiguous - 'the gene' lacks specific context, 'increased risk' needs quantification"
-    }},
-    {{
-      "action": "preserved",
-      "original_index": 2,
-      "original_text": "BRCA1 mutations are found in {{{{c1::5-10%}}}} of breast cancers",
-      "reason": "Good cloze pattern - specific fact with clear context, keeping as-is"
-    }},
-    {{
       "action": "modified", 
       "original_index": 3,
       "original_text": "Treatment includes {{{{c1::chemotherapy}}}}",
       "new_text": "First-line treatment for HER2+ breast cancer includes {{{{c1::trastuzumab}}}} with {{{{c2::chemotherapy}}}}",
       "reason": "Added specific context (HER2+) to make card self-contained, split into two clozes"
-    }},
-    {{
-      "action": "modified",
-      "original_index": 11,
-      "original_text": "Tamoxifen for premenopausal, AIs for postmenopausal women",
-      "new_text": "Tamoxifen is preferred for {{{{c1::premenopausal}}}} women, AIs for {{{{c1::postmenopausal}}}} women",
-      "reason": "Used same cloze number (c1) for both since they test the same concept (menopause status) and are mutually exclusive"
-    }},
-    {{
-      "action": "modified",
-      "original_index": 15,
-      "original_text": "Adjuvant therapy is recommended for {{{{c1::all}}}} ER-positive cancers",
-      "new_text": "Adjuvant {{{{c1::endocrine}}}} therapy for {{{{c2::ER-positive}}}} early breast cancer is given for {{{{c3::5 years}}}} (10 years if high-risk)",
-      "reason": "Expanded to test meaningful facts (therapy type, receptor, duration) instead of just 'all' vs 'some'"
-    }},
-    {{
-      "action": "modified",
-      "original_index": 20,
-      "original_text": "Early breast cancer is {{{{c1::potentially curable}}}}",
-      "new_text": "Early breast cancer is confined to {{{{c1::breast ± axillary nodes}}}} and is {{{{c2::potentially curable}}}}",
-      "reason": "Added missing definitional fact about anatomical confinement - students need to know what defines 'early' stage"
     }}
   ]
 }}
 
 ⚠️ REMEMBER: The goal is to REFINE cards while MAINTAINING their good cloze deletion patterns. Do not make cards more ambiguous in the name of brevity. Each card must be answerable without having seen the lecture."""
-
-        payload = {
-            "model": "o3",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_completion_tokens": 100000
+    
+    def _save_refinement_logs(self, refinement_log_file: Path, lecture_name: str, 
+                            total_original_cards: int, refined_cards: List[Dict], 
+                            decisions: List[Dict]):
+        """Save refinement logs in both JSON and human-readable formats."""
+        refinement_data = {
+            "lecture": lecture_name,
+            "timestamp": datetime.now().isoformat(),
+            "original_count": total_original_cards,
+            "refined_count": len(refined_cards),
+            "decisions": decisions,
+            "summary": {
+                "removed": len([d for d in decisions if d.get('action') == 'removed']),
+                "merged": len([d for d in decisions if d.get('action') == 'merged']),
+                "modified": len([d for d in decisions if d.get('action') == 'modified'])
+            }
         }
         
-        try:
-            response = self.session.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=self.headers,
-                json=payload,
-                timeout=300  # Longer timeout for reasoning
-            )
-            
-            if response.status_code == 200:
-                content = response.json()['choices'][0]['message']['content']
-                json_match = re.search(r'\{[\s\S]*\}', content)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    refined_cards = result.get('refined_cards', [])
-                    decisions = result.get('decisions', [])
-                    
-                    # Log all decisions
-                    refinement_data = {
-                        "lecture": lecture_name,
-                        "timestamp": datetime.now().isoformat(),
-                        "original_count": total_original_cards,
-                        "refined_count": len(refined_cards),
-                        "decisions": decisions,
-                        "summary": {
-                            "removed": len([d for d in decisions if d.get('action') == 'removed']),
-                            "merged": len([d for d in decisions if d.get('action') == 'merged']),
-                            "modified": len([d for d in decisions if d.get('action') == 'modified'])
-                        }
-                    }
-                    
-                    # Save refinement log
-                    with open(refinement_log_file, 'w', encoding='utf-8') as f:
-                        json.dump(refinement_data, f, indent=2, ensure_ascii=False)
-                    
-                    print(f"📝 Refinement decisions logged to: {refinement_log_file}")
-                    self.logger.info(f"Refinement complete: {total_original_cards} → {len(refined_cards)} cards")
-                    self.logger.info(f"Removed: {refinement_data['summary']['removed']}, Merged: {refinement_data['summary']['merged']}, Modified: {refinement_data['summary']['modified']}")
-                    
-                    # Also create a human-readable summary
-                    summary_file = refinement_log_file.with_suffix('.txt')
-                    with open(summary_file, 'w', encoding='utf-8') as f:
-                        f.write(f"Refinement Summary for {lecture_name}\n")
-                        f.write(f"{'='*60}\n")
-                        f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                        f.write(f"Original cards: {total_original_cards}\n")
-                        f.write(f"Refined cards: {len(refined_cards)}\n")
-                        if total_original_cards > 0:
-                            reduction_percent = (1 - len(refined_cards)/total_original_cards) * 100
-                            f.write(f"Reduction: {total_original_cards - len(refined_cards)} cards ({reduction_percent:.1f}%)\n\n")
-                        else:
-                            f.write(f"Reduction: 0 cards (0.0%)\n\n")
-                        
-                        f.write("DECISIONS:\n")
-                        f.write("-"*60 + "\n\n")
-                        
-                        for decision in decisions:
-                            f.write(f"ACTION: {decision['action'].upper()}\n")
-                            if decision['action'] == 'removed':
-                                f.write(f"Card #{decision['original_index']}: {decision.get('original_text', 'N/A')[:100]}...\n")
-                            elif decision['action'] == 'merged':
-                                f.write(f"Cards #{decision['original_indices']}\n")
-                            elif decision['action'] == 'modified':
-                                f.write(f"Card #{decision['original_index']}\n")
-                                f.write(f"Original: {decision.get('original_text', 'N/A')[:100]}...\n")
-                                f.write(f"New: {decision.get('new_text', 'N/A')[:100]}...\n")
-                            f.write(f"REASON: {decision['reason']}\n")
-                            f.write("-"*40 + "\n\n")
-                    
-                    print(f"📄 Human-readable summary saved to: {summary_file}")
-                    
-                    # Validate that cards still have cloze format
-                    valid_cards = []
-                    for card in refined_cards:
-                        if '{{c' in card.get('text', ''):
-                            valid_cards.append(card)
-                        else:
-                            self.logger.warning(f"Skipping card without cloze format: {card.get('text', '')[:50]}...")
-                    
-                    # Reorganize refined cards back into slide structure
-                    refined_data = {}
-                    for card in valid_cards:
-                        slide_num = card.get('slide', 1)
-                        if slide_num not in refined_data:
-                            refined_data[slide_num] = {
-                                'page_num': slide_num,
-                                'cards': []
-                            }
-                        
-                        # Apply single card format if needed
-                        card_text = card['text']
-                        if self.single_card_mode:
-                            card_text = self.convert_to_single_card_format(card_text)
-                        
-                        refined_data[slide_num]['cards'].append({
-                            'text': self.add_bold_formatting(card_text),
-                            'facts': card.get('facts', []),
-                            'context': card.get('context', ''),
-                            'clinical_relevance': card.get('clinical_relevance', '')
-                        })
-                    
-                    refined_list = list(refined_data.values())
-                    total_refined_cards = sum(len(d['cards']) for d in refined_list)
-                    
-                    print(f"✅ Refinement complete: {total_original_cards} cards → {total_refined_cards} optimized cards")
-                    
-                    return refined_list
-                    
-        except Exception as e:
-            self.logger.error(f"Refinement failed: {str(e)}", exc_info=True)
-            print(f"❌ Refinement failed: {str(e)}")
-            print("⚠️ Using original cards without refinement")
-            import traceback
-            traceback.print_exc()
+        # Save JSON log
+        with open(refinement_log_file, 'w', encoding='utf-8') as f:
+            json.dump(refinement_data, f, indent=2, ensure_ascii=False)
         
-        return all_cards_data
+        print(f"📝 Refinement decisions logged to: {refinement_log_file}")
+        self.logger.info(f"Refinement complete: {total_original_cards} → {len(refined_cards)} cards")
+        self.logger.info(f"Removed: {refinement_data['summary']['removed']}, "
+                        f"Merged: {refinement_data['summary']['merged']}, "
+                        f"Modified: {refinement_data['summary']['modified']}")
+        
+        # Create human-readable summary
+        summary_file = refinement_log_file.with_suffix('.txt')
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write(f"Refinement Summary for {lecture_name}\n")
+            f.write(f"{'='*60}\n")
+            f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Original cards: {total_original_cards}\n")
+            f.write(f"Refined cards: {len(refined_cards)}\n")
+            if total_original_cards > 0:
+                reduction_percent = (1 - len(refined_cards)/total_original_cards) * 100
+                f.write(f"Reduction: {total_original_cards - len(refined_cards)} cards ({reduction_percent:.1f}%)\n\n")
+            else:
+                f.write(f"Reduction: 0 cards (0.0%)\n\n")
+            
+            f.write("DECISIONS:\n")
+            f.write("-"*60 + "\n\n")
+            
+            for decision in decisions:
+                f.write(f"ACTION: {decision['action'].upper()}\n")
+                if decision['action'] == 'removed':
+                    f.write(f"Card #{decision['original_index']}: {decision.get('original_text', 'N/A')[:100]}...\n")
+                elif decision['action'] == 'merged':
+                    f.write(f"Cards #{decision['original_indices']}\n")
+                elif decision['action'] == 'modified':
+                    f.write(f"Card #{decision['original_index']}\n")
+                    f.write(f"Original: {decision.get('original_text', 'N/A')[:100]}...\n")
+                    f.write(f"New: {decision.get('new_text', 'N/A')[:100]}...\n")
+                f.write(f"REASON: {decision['reason']}\n")
+                f.write("-"*40 + "\n\n")
+        
+        print(f"📄 Human-readable summary saved to: {summary_file}")
+    
+    def _process_refined_cards(self, refined_cards: List[Dict]) -> List[Dict]:
+        """Process and organize refined cards back into slide structure."""
+        # Validate that cards still have cloze format
+        valid_cards = []
+        for card in refined_cards:
+            if '{{c' in card.get('text', ''):
+                valid_cards.append(card)
+            else:
+                self.logger.warning(f"Skipping card without cloze format: {card.get('text', '')[:50]}...")
+        
+        # Reorganize refined cards back into slide structure
+        refined_data = {}
+        for card in valid_cards:
+            slide_num = card.get('slide', 1)
+            if slide_num not in refined_data:
+                refined_data[slide_num] = {
+                    'page_num': slide_num,
+                    'cards': []
+                }
+            
+            # Apply single card format if needed
+            card_text = card['text']
+            if self.single_card_mode:
+                card_text = self.convert_to_single_card_format(card_text)
+            
+            refined_data[slide_num]['cards'].append({
+                'text': self.add_bold_formatting(card_text),
+                'facts': card.get('facts', []),
+                'context': card.get('context', ''),
+                'clinical_relevance': card.get('clinical_relevance', '')
+            })
+        
+        refined_list = list(refined_data.values())
+        total_refined_cards = sum(len(d['cards']) for d in refined_list)
+        
+        print(f"✅ Refinement complete: {len(refined_cards)} cards → {total_refined_cards} optimized cards")
+        
+        return refined_list
     
     def save_progress(self, progress_file: Path, progress_data: Dict):
         """Save progress to a file."""
@@ -1055,7 +989,8 @@ Return a JSON object with TWO arrays:
                 print(f"⚠️ Could not load progress file: {e}")
         return None
     
-    def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], output_dir: str, deck_suffix: str = ""):
+    def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], 
+                          output_dir: str, deck_suffix: str = ""):
         """Create Anki package (.apkg) with cards and images using genanki."""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -1088,17 +1023,15 @@ Return a JSON object with TWO arrays:
             image_filename = f"slide_{lecture_name}_{page_num:03d}.png"
             if page_num in page_to_image:
                 image_path = temp_media_dir / image_filename
-                if not image_path.exists():  # Only save if not already saved
+                if not image_path.exists():
                     page_to_image[page_num].save(image_path, "PNG", optimize=True)
                 media_files.append(str(image_path))
             
             for card in slide_cards:
                 note_text = card['text']
-                
-                # Escape HTML but preserve our formatting
                 note_text = self.escape_html_but_preserve_formatting(note_text)
                 
-                # Build extra content with clinical relevance if available
+                # Build extra content
                 extra_parts = [f'<img src="{image_filename}">']
                 if card.get('clinical_relevance'):
                     clinical_text = html.escape(card['clinical_relevance'])
@@ -1155,7 +1088,8 @@ Return a JSON object with TWO arrays:
         
         return apkg_filename
     
-    def process_lecture(self, pdf_path: str, output_dir: str = "anki_output", resume: bool = True, advanced_mode: bool = False):
+    def process_lecture(self, pdf_path: str, output_dir: str = "anki_output", resume: bool = True, 
+                       advanced_mode: bool = False):
         """Process a single lecture PDF with resume capability."""
         lecture_name = Path(pdf_path).stem
         print(f"\n🔍 Processing lecture: {lecture_name}")
@@ -1193,9 +1127,8 @@ Return a JSON object with TWO arrays:
         all_cards_data = progress_data['cards_data']
         completed_slides = set(progress_data['completed_slides'])
         
-        # Batch processing mode
+        # Process slides based on mode
         if self.batch_mode:
-            # Get slides that haven't been processed yet
             remaining_images = [(img, page_num) for img, page_num in images if page_num not in completed_slides]
             
             if remaining_images:
@@ -1203,109 +1136,89 @@ Return a JSON object with TWO arrays:
                 batch_results = self.analyze_slides_batch(remaining_images, lecture_name)
                 
                 if batch_results:
-                    # Add batch results to all_cards_data
                     for slide_data in batch_results:
                         if slide_data['cards']:
                             all_cards_data.append(slide_data)
                         completed_slides.add(slide_data['page_num'])
                     
-                    # Update progress
                     progress_data['completed_slides'] = list(completed_slides)
                     progress_data['cards_data'] = all_cards_data
                     progress_data['last_update'] = datetime.now().isoformat()
                     self.save_progress(progress_file, progress_data)
                 else:
                     print("⚠️ Batch processing failed, falling back to individual processing...")
-                    # Fall back to individual processing
-                    for img, page_num in remaining_images:
-                        if page_num in completed_slides:
-                            continue
-                            
-                        print(f"🤖 Analyzing slide {page_num}/{len(images)}...", end='', flush=True)
-                        slide_data = self.analyze_slide_with_ai(img, page_num, lecture_name)
-                        
-                        if slide_data['cards']:
-                            all_cards_data.append(slide_data)
-                            print(f" → {len(slide_data['cards'])} cards generated")
-                        else:
-                            print(" → No cards generated")
-                        
-                        completed_slides.add(page_num)
-                        progress_data['completed_slides'] = list(completed_slides)
-                        progress_data['cards_data'] = all_cards_data
-                        progress_data['last_update'] = datetime.now().isoformat()
-                        
-                        self.save_progress(progress_file, progress_data)
+                    self._process_slides_individually(remaining_images, lecture_name, completed_slides, 
+                                                    all_cards_data, progress_data, progress_file)
         else:
-            # Individual processing mode (original behavior)
-            for img, page_num in images:
-                if page_num in completed_slides:
-                    print(f"⏭️ Skipping slide {page_num}/{len(images)} (already processed)")
-                    continue
-                    
-                print(f"🤖 Analyzing slide {page_num}/{len(images)}...", end='', flush=True)
-                slide_data = self.analyze_slide_with_ai(img, page_num, lecture_name)
-                
-                if slide_data['cards']:
-                    all_cards_data.append(slide_data)
-                    print(f" → {len(slide_data['cards'])} cards generated")
-                else:
-                    print(" → No cards generated")
-                
-                completed_slides.add(page_num)
-                progress_data['completed_slides'] = list(completed_slides)
-                progress_data['cards_data'] = all_cards_data
-                progress_data['last_update'] = datetime.now().isoformat()
-                
-                self.save_progress(progress_file, progress_data)
+            remaining_images = [(img, page_num) for img, page_num in images if page_num not in completed_slides]
+            self._process_slides_individually(remaining_images, lecture_name, completed_slides, 
+                                            all_cards_data, progress_data, progress_file)
         
-        # Advanced mode: critique and refine all cards
+        # Handle advanced mode or normal completion
         if advanced_mode and all_cards_data:
             refined_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
             
-            # Create both original and refined decks
             print("\n📦 Creating ORIGINAL deck...")
-            original_apkg = self.create_anki_package(all_cards_data, lecture_name, images, output_dir, deck_suffix="::Original")
+            original_apkg = self.create_anki_package(all_cards_data, lecture_name, images, output_dir, 
+                                                   deck_suffix="::Original")
             
             print("\n📦 Creating REFINED deck...")
-            refined_apkg = self.create_anki_package(refined_cards_data, lecture_name, images, output_dir, deck_suffix="::Refined")
+            refined_apkg = self.create_anki_package(refined_cards_data, lecture_name, images, output_dir, 
+                                                  deck_suffix="::Refined")
             
-            # Clean up temp media only after both packages are created
-            temp_media_dir = Path(output_dir) / "temp_media"
-            if temp_media_dir.exists():
-                for file in temp_media_dir.glob("*"):
-                    file.unlink()
-                temp_media_dir.rmdir()
+            self._cleanup_temp_files(output_dir, progress_file)
             
             print("\n🎯 Advanced mode complete!")
             print(f"📊 Original: {sum(len(d['cards']) for d in all_cards_data)} cards")
             print(f"📊 Refined: {sum(len(d['cards']) for d in refined_cards_data)} cards")
             print("💡 Import both decks to compare and choose the best version!")
             
-            if progress_file.exists():
-                progress_file.unlink()
-                print("🧹 Cleaned up progress file")
-            
             return [original_apkg, refined_apkg]
         else:
-            # Not advanced mode - create single package
             print("\n📦 Creating Anki package...")
             apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
             
-            # Clean up temp media after package creation
-            temp_media_dir = Path(output_dir) / "temp_media"
-            if temp_media_dir.exists():
-                for file in temp_media_dir.glob("*"):
-                    file.unlink()
-                temp_media_dir.rmdir()
-            
-            if progress_file.exists():
-                progress_file.unlink()
-                print("🧹 Cleaned up progress file")
+            self._cleanup_temp_files(output_dir, progress_file)
             
             return apkg_path
     
-    def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True, advanced_mode: bool = False):
+    def _process_slides_individually(self, remaining_images: List[Tuple[Image.Image, int]], 
+                                   lecture_name: str, completed_slides: set, all_cards_data: List[Dict],
+                                   progress_data: Dict, progress_file: Path):
+        """Process slides individually with progress tracking."""
+        total_slides = len(remaining_images) + len(completed_slides)
+        
+        for img, page_num in remaining_images:
+            print(f"🤖 Analyzing slide {page_num}/{total_slides}...", end='', flush=True)
+            slide_data = self.analyze_slide_with_ai(img, page_num, lecture_name)
+            
+            if slide_data['cards']:
+                all_cards_data.append(slide_data)
+                print(f" → {len(slide_data['cards'])} cards generated")
+            else:
+                print(" → No cards generated")
+            
+            completed_slides.add(page_num)
+            progress_data['completed_slides'] = list(completed_slides)
+            progress_data['cards_data'] = all_cards_data
+            progress_data['last_update'] = datetime.now().isoformat()
+            
+            self.save_progress(progress_file, progress_data)
+    
+    def _cleanup_temp_files(self, output_dir: str, progress_file: Path):
+        """Clean up temporary files after processing."""
+        temp_media_dir = Path(output_dir) / "temp_media"
+        if temp_media_dir.exists():
+            for file in temp_media_dir.glob("*"):
+                file.unlink()
+            temp_media_dir.rmdir()
+        
+        if progress_file.exists():
+            progress_file.unlink()
+            print("🧹 Cleaned up progress file")
+    
+    def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True, 
+                      advanced_mode: bool = False):
         """Process all PDFs in a folder with resume capability."""
         folder = Path(folder_path)
         pdf_files = list(folder.glob("*.pdf"))
@@ -1316,6 +1229,7 @@ Return a JSON object with TWO arrays:
             print("🧠 Advanced mode: Enabled (will critique and refine cards)")
         
         progress_dir = Path(output_dir) / "progress"
+        progress_dir.mkdir(parents=True, exist_ok=True)
         folder_progress_file = progress_dir / "folder_progress.json"
         
         completed_files = set()
@@ -1365,6 +1279,7 @@ Return a JSON object with TWO arrays:
             folder_progress_file.unlink()
             print("🧹 Cleaned up folder progress file")
 
+
 def parse_style_options(style_string: str) -> Dict:
     """Parse style options from command line string."""
     style = {}
@@ -1375,11 +1290,13 @@ def parse_style_options(style_string: str) -> Dict:
                 style[key.strip()] = value.strip()
     return style
 
+
 def parse_tags(tags_string: str) -> List[str]:
     """Parse custom tags from command line string."""
     if tags_string:
         return [tag.strip() for tag in tags_string.split(',')]
     return []
+
 
 def main():
     print("""
@@ -1480,6 +1397,7 @@ def main():
         generator.process_folder(path, resume=resume, advanced_mode=advanced_mode)
     else:
         print("❌ Please provide a valid PDF file or folder path")
+
 
 if __name__ == "__main__":
     main()
