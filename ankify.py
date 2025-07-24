@@ -49,9 +49,10 @@ Instead, use learning objectives to GUIDE what medical facts to extract from con
     
     @staticmethod
     def get_cloze_examples() -> str:
-        """Get good vs bad cloze examples."""
+        """Get good vs bad cloze examples - UPDATED WITH NEW EXAMPLES."""
         return """
 GOOD vs BAD CLOZE EXAMPLES:
+
 ✅ GOOD: "The IVC is formed by the junction of the {{c1::left and right common iliac veins}}"
 ❌ BAD: "The IVC is {{c1::formed by the junction of the left and right common iliac veins}}" (too vague)
 
@@ -59,7 +60,113 @@ GOOD vs BAD CLOZE EXAMPLES:
 ❌ BAD: "The fluid shouldn't contain {{c1::malignant}} cells" (which fluid?)
 
 ✅ GOOD: "Lung cancer prognosis is poor when {{c1::T cells}} are {{c2::inactivated}}"
-❌ BAD: "Lung cancer prognosis is poor when {{c1::T cells are inactivated}}" (tests too much at once)"""
+❌ BAD: "Lung cancer prognosis is poor when {{c1::T cells are inactivated}}" (tests too much at once)
+
+ADDITIONAL EXAMPLES TO AVOID:
+
+❌ BAD: "Visual warning signs of possible breast cancer include skin changes, dimpling, a pulled-in nipple, redness/rash, abnormal nipple discharge, and a visible {{c1::lump}}."
+→ Problem: Only tests one symptom when all are important
+✅ BETTER: "Visual warning signs of possible breast cancer include {{c1::skin}} changes, {{c1::dimpling}}, a {{c1::pulled-in}} nipple, {{c1::redness/rash}}, abnormal nipple {{c1::discharge}}, and a visible {{c1::lump}}."
+
+❌ BAD: "Future ADC research priorities include optimal sequencing, combination with immunotherapy, biomarker development and understanding {{c1::resistance mechanisms}}."
+→ Problem: Future research priorities are not assessable content
+✅ SKIP THIS CONTENT - not relevant for medical student assessment
+
+❌ BAD: "Multiple DESTINY-Breast trials are evaluating T-DXd in {{c1::earlier-stage (neoadjuvant and adjuvant)}} HER2-positive disease"
+→ Problem: Unexplained abbreviation "T-DXd" makes card not self-contained
+✅ BETTER: "{{c1::Trastuzumab deruxtecan (T-DXd)}} trials are evaluating use in {{c2::earlier-stage}} HER2-positive disease"
+
+❌ INCOMPLETE: "{{c1::CDK4/6 inhibitors}} (e.g., palbociclib) block the {{c1::G1→S transition}} of the cell cycle"
+→ Problem: Misses the drug name and target population
+✅ COMPLETE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1→S transition}} in {{c4::ER-positive}} breast cancer cells"
+
+❌ BAD: "Gastrointestinal side effects such as {{c1::nausea}} and {{c1::diarrhoea}} frequently accompany ADC treatment."
+→ Problem: No context - what is ADC?
+✅ BETTER: "Gastrointestinal side effects such as {{c1::nausea}} and {{c1::diarrhoea}} frequently accompany {{c1::antibody-drug conjugate (ADC)}} treatment"
+
+❌ BAD: "When pCR is not achieved after neoadjuvant therapy, escalation may involve adding {{c1::capecitabine}}"
+→ Problem: Unexplained abbreviation "pCR"
+✅ BETTER: "When {{c1::pathological complete response (pCR)}} is not achieved, escalation may involve adding {{c2::capecitabine}}"
+
+❌ ILLOGICAL: "Because external-beam breast RT does {{c1::not make patients radioactive}}, they can {{c1::safely drive themselves}}"
+→ Problem: Creates illogical connection between radioactivity and driving
+✅ SKIP or REWORD to focus on the actual safety aspect
+
+❌ BAD: "Unless ER-positive tumour is <10 mm, offer {{c1::5 years of endocrine therapy}}; use {{c1::tamoxifen for pre-menopausal}}"
+→ Problem: Too much info in second cloze
+✅ BETTER: "For ER-positive tumours ≥10 mm, offer {{c1::5 years}} of endocrine therapy; use {{c2::tamoxifen}} for {{c3::pre-menopausal}} women"
+
+❌ BAD: "Adding a {{c1::CDK4/6 inhibitor}} to an {{c1::aromatase inhibitor}} roughly {{c2::doubles progression-free survival}} versus AI alone"
+→ Problem: "AI alone" reveals second cloze deletion
+✅ BETTER: "Adding {{c1::CDK4/6 inhibitor}} to {{c2::aromatase inhibitor}} {{c3::doubles}} progression-free survival in metastatic ER+ cancer"
+
+❌ BAD: "At presentation, ~{{c1::95%}} of TNBC cases are {{c1::early-stage}}, whereas only 5% are metastatic"
+→ Problem: "5% are metastatic" reveals the 95% figure
+✅ BETTER: "At presentation, most TNBC cases are {{c1::early-stage (I-III)}} rather than {{c1::metastatic (stage IV)}}"
+
+❌ TOO VAGUE: "Adjuvant systemic therapy provides lifelong improvement in {{c1::recurrence-free and overall survival}}"
+→ Problem: Too ambiguous - what specific outcomes?
+✅ BETTER: "Adjuvant systemic therapy improves {{c1::recurrence-free}} and {{c2::overall}} survival"
+
+❌ INCOMPLETE: "G-CSF after chemotherapy reduces the {{c1::depth and duration of neutropenia}}"
+→ Problem: Drug name (G-CSF) is more important than effect details
+✅ BETTER: "{{c1::Granulocyte colony-stimulating factor (G-CSF)}} reduces {{c2::neutropenia}} after chemotherapy"
+
+❌ OBVIOUS: "Tubular, cribriform and mucinous carcinomas are examples of {{c1::special histologic subtypes}}"
+→ Problem: Obviously they're histologic subtypes
+✅ BETTER: "{{c1::Tubular}}, {{c1::cribriform}} and {{c1::mucinous}} carcinomas have {{c2::better prognosis}} than ductal NST"
+
+❌ POOR CHOICE: "Systematic breast palpation begins with light pressure, followed by medium and deep pressure before {{c1::moving to the next zone}}"
+→ Problem: Wrong focus - moving zones is obvious
+✅ BETTER: "Systematic breast palpation uses {{c1::light}}, then {{c2::medium}}, then {{c3::deep}} pressure"
+
+❌ NO CONTEXT: "Randomised trials show lower {{c1::mastectomy rate}} when neoadjuvant therapy is used"
+→ Problem: Needs breast cancer context
+✅ BETTER: "In breast cancer, neoadjuvant therapy reduces {{c1::mastectomy}} rates by enabling {{c2::breast-conserving surgery}}
+
+❌ BAD: "Pain is usually the {{c1::first symptom::clinical feature}} of malignant spinal cord compression and typically precedes neurological deficits by a median of {{c1::about 7 weeks::duration}}."
+→ Problem: The actual symptom "pain" should be tested, not that it's "first"
+✅ BETTER: "{{c1::Pain}} is usually the first symptom of malignant spinal cord compression, preceding neurological deficits by {{c2::7 weeks}}"
+
+❌ BAD: "In prostate cancer, {{c1::androgen-deprivation therapy (ADT)::therapy type}} is the {{c1::mainstay systemic treatment::treatment role}}, used in {{c2::both curative and advanced::disease setting}} disease settings."
+→ Problem: Testing "mainstay" is meaningless; also redundant cloze hints
+✅ BETTER: "In prostate cancer, {{c1::androgen-deprivation therapy (ADT)}} is used in both {{c2::curative}} and {{c2::advanced}} disease settings"
+
+❌ BAD: "Cytotoxic chemotherapy in prostate cancer is generally reserved for the {{c1::metastatic::stage}} setting rather than for localised disease."
+→ Problem: If not localised, obviously advanced/metastatic
+✅ BETTER: "In prostate cancer, {{c1::cytotoxic chemotherapy}} is reserved for {{c2::metastatic}} disease"
+
+❌ BAD: "Most international guidelines {{c1::do not recommend routine population PSA screening::recommendation}} and instead emphasise {{c1::shared decision-making based on informed choice::approach}}."
+→ Problem: Extremely ambiguous without PSA context
+✅ BETTER: "Most international guidelines {{c1::do not recommend}} routine population {{c2::PSA}} screening, emphasising {{c3::shared decision-making}}"
+
+❌ BAD: "In AJCC 2017 staging, advancing primary tumour category from T1 to T3b/T4 produces progressively worse recurrence-free survival following surgery."
+→ Problem: No reference to which cancer (acinar prostatic adenocarcinoma)
+
+❌ BAD: "Under the 2023 eviQ guidelines, men with {{c1::castrate-resistant metastatic prostate cancer (mCRPC)::indication}} should commence genetic work-up with {{c1::somatic (tumour) testing::investigation}}, regardless of personal or family history."
+→ Problem: When cloze deleted, too ambiguous - no hint about which disease
+
+❌ BAD: "Sickled red cells have {{c1::decreased deformability and increased endothelial adhesion::cellular properties}}, leading to {{c1::microvascular obstruction with hypoxia, acidosis and coagulation activation::consequence}}."
+→ Problem: Deletions way too large
+✅ BETTER: "Sickled red cells have decreased {{c1::deformability}} and increased {{c2::endothelial adhesion}}, causing {{c3::microvascular obstruction}} with {{c4::hypoxia}}, {{c4::acidosis}} and {{c4::coagulation activation}}"
+
+❌ BAD: "Haemoglobin chromatography separates Hb variants and confirms that {{c1::Hb S homozygosity causes sickle cell disease}}"
+→ Problem: Can confirm countless things - too ambiguous
+✅ BETTER: "Haemoglobin chromatography confirms that Hb {{c1::S::type}} {{c1::homozygosity::inheritance}} causes {{c2::sickle cell disease}}"
+
+❌ BAD: "In α-thalassaemia, excess unpaired {{c1::β chains form HbH (β₄)::pathophysiology}} and excess {{c1::γ chains form Hb Barts (γ₄)::pathophysiology}}."
+→ Problem: Cloze deletions too large and ambiguous
+✅ BETTER: "In α-thalassaemia, excess unpaired {{c1::β}} chains form {{c2::HbH (β₄)}} and excess {{c3::γ}} chains form {{c4::Hb Barts (γ₄)}}"
+
+CRITICAL CARD EVALUATION QUESTIONS:
+Before finalizing any card, ask:
+1. Once cloze sections are deleted, can you easily guess what this card is about (the main topic - which disease, drug, cell, treatment)?
+2. If not, the card is too ambiguous. Either:
+   - Add a hint to remove ambiguity
+   - Add context within the sentence to remove ambiguity
+3. Are all important facts being tested, not just one arbitrary detail?
+
+"""
     
     @staticmethod
     def get_advanced_principles() -> str:
@@ -85,7 +192,14 @@ ADVANCED CLOZE PRINCIPLES:
 ❌ SUPERFICIAL: "{{c1::Palbociclib}} blocks G1-to-S transition"
 → Only tests drug name
 ✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
-→ Tests drug class, example, mechanism, and effect"""
+→ Tests drug class, example, mechanism, and effect
+
+CRITICAL REMINDERS:
+- Test ALL important facts in a statement, not just one
+- Ensure abbreviations are spelled out at least once
+- Provide sufficient context for self-contained understanding
+- Focus on clinically relevant information, not research priorities
+- Avoid cards where remaining context reveals the cloze deletion"""
     
     @staticmethod
     def get_percentage_guidelines() -> str:
@@ -132,6 +246,7 @@ Your task is to create flashcards appropriate for medical student level:
    - Research methodology minutiae
    - Historical facts unless clinically relevant
    - Subspecialty-specific technical details
+   - Future research priorities or ongoing trials
 
 5. ENSURE each card:
    - Can be understood without seeing the original lecture
@@ -145,7 +260,9 @@ Your task is to create flashcards appropriate for medical student level:
    - Tests ALL key facts in a statement (definitions, mechanisms, effects)
    - Uses same cloze number (c1) when testing related binary choices
    - Avoids overly simple clozes like "all" vs "some"
-   - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")"""
+   - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
+   - Spells out all abbreviations at least once
+   - Includes all important symptoms/signs when listing them"""
     
     @staticmethod
     def get_json_format() -> str:
@@ -169,17 +286,74 @@ Example:
 
 Create concise, self-contained cards testing PRACTICAL MEDICAL KNOWLEDGE with clear, unambiguous cloze deletions."""
 
+    @staticmethod
+    def get_hint_instructions() -> str:
+        """Get instructions for adding cloze hints in critique mode."""
+        return """
+CLOZE HINT GUIDELINES:
+When refining cards, add descriptive category hints to cloze deletions to narrow down guessing without giving away the answer.
+!! IMPORTANT: ONLY INCLUDE HINTS IF THEY REDUCE AMBIGUITY !! 
+!! IMPORTANT: DO NOT INCLUDE HINTS WITH NO HINT VALUE - I.E. NO REDUCTION IN AMBIGUITY!!
+
+FORMAT: {{c1::answer::hint}}
+
+GOOD HINT CATEGORIES:
+- "drug/medication" - for drug names
+- "dose/duration" - for dosing or time periods
+- "receptor/marker" - for biological markers
+- "stage/grade" - for staging or grading
+- "percentage/rate" - for statistics
+- "mechanism" - for pathophysiology
+- "clinical feature" - for signs/symptoms
+- "investigation" - for diagnostic tests
+- "hormonal status" - for pre/post-menopausal
+- "receptor status" - for ER/PR/HER2 or other receptors
+- "side effect" - for adverse effects
+- "contraindication" - for when not to use
+- "indication" - for when to use
+- "prostate cancer type" - for specific prostate cancer variants
+
+EXAMPLES:
+✅ "Tamoxifen is preferred for {{c1::premenopausal::hormonal status}} women"
+Why: Initially broad category of types of women is narrowed down to those of different hormonal status. Does not give away answer.
+✅ "TNBC shows {{c1::ER < 1%, PR < 1%::receptor expression}}"
+Why: TNBC could show anything (initially ambiguous), hint narrowed down to those of different receptor expression. Does not give away answer.
+✅ "Adjuvant therapy is given for {{c1::5 years::duration}} (10 if high-risk)"
+Why: Initial interpretation could be indication, demographic, pathological subtype -> hint narrows down to duration without giving away answer.
+✅ "{{c1::CDK4/6 inhibitors::drug class}} like palbociclib block cell cycle"
+
+AVOID:
+❌ Valueless hints: The prostate cancer survivorship essentials framework lists six domains: {{c1::Health promotion &amp; advocacy::domain}}, {{c1::Evidence‑based interventions::domain}}, {{c1::Personal agency::domain}}, {{c1::Vigilance::domain}}, {{c1::Care coordination::domain}}, and {{c1::Shared management::domain}}.
+WHY: Domain does not give any hint at all, "domain" is a generic placeholder for anything and is included in the cloze already. NO REDUCTION IN AMBIGUITY
+
+❌ Generic placeholders: Priority actions for men with prostate cancer include enhancing {{c1::patient‑clinician communication::action}}, developing a {{c1::survivorship toolkit::action}}, expanding {{c1::multi‑modal care::action}}, reducing {{c1::out‑of‑pocket costs::action}}, promoting {{c1::exercise::action}}, harnessing {{c1::technology for access::action}}, and building {{c1::specialist outreach capacity::action}}.
+WHY: "action" is a generic placeholder that provides no hint value and is already mentioned in the cloze
+
+❌ Inaccurate hints: Whole blood is roughly {{c1::55 % plasma::percentage}} and {{c1::45 % formed elements (red cells, white cells, platelets)::percentage}}.
+WHY: The deletion is not just a percentage but a percentage AND a component of blood. Hints must accurately describe the WHOLE cloze deletion content
+
+❌ Redundant hints: {{c1::nausea::nausea symptom}}
+❌ Hints that give away the answer 
+
+OVERARCHING GOAL: Specific hints without giving away the answer are optimal. This is challenging however, and you should err on the side of ambiguity rather than specificity."""
+
+
 
 class MedicalAnkiGenerator:
     def __init__(self, openai_api_key: str, single_card_mode: bool = False, 
                  custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None,
-                 batch_mode: bool = False, compression_level: str = "none"):
+                 batch_mode: bool = False, compression_level: str = "none",
+                 test_mode: bool = False, preserve_quality: bool = False,
+                 add_hints: bool = False):
         self.api_key = openai_api_key
         self.single_card_mode = single_card_mode
         self.custom_tags = custom_tags or []
         self.card_style = card_style or {}
         self.batch_mode = batch_mode
         self.compression_level = compression_level
+        self.test_mode = test_mode
+        self.preserve_quality = preserve_quality
+        self.add_hints = add_hints
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -228,7 +402,9 @@ class MedicalAnkiGenerator:
         )
         self.logger = logging.getLogger(__name__)
         self.logger.info("Ankify session started")
-        self.logger.info(f"Configuration: single_card={self.single_card_mode}, batch={self.batch_mode}, compression={self.compression_level}")
+        self.logger.info(f"Configuration: single_card={self.single_card_mode}, batch={self.batch_mode}, "
+                        f"compression={self.compression_level}, test_mode={self.test_mode}, "
+                        f"preserve_quality={self.preserve_quality}, add_hints={self.add_hints}")
         
     def _create_styled_model(self):
         """Create Anki model with custom styling."""
@@ -236,8 +412,13 @@ class MedicalAnkiGenerator:
         bg_color = self.card_style.get('background', 'white')
         text_color = self.card_style.get('text_color', 'black')
         cloze_color = self.card_style.get('cloze_color', 'blue')
+        bold_color = self.card_style.get('bold_color', None)  # New option
         font_family = self.card_style.get('font_family', 'arial')
         font_size = self.card_style.get('font_size', '20px')
+
+        # If no bold color specified, use brightened cloze color as before
+        if bold_color is None:
+            bold_color = self._adjust_color_brightness(cloze_color, 2)
         
         # Create a unique model ID based on style settings
         style_hash = hash(str(self.card_style))
@@ -281,7 +462,7 @@ class MedicalAnkiGenerator:
                 font-size: 0.9em;
             }}
             b, strong {{
-                color: {self._adjust_color_brightness(cloze_color, 1.2)};
+                color: {bold_color};
                 font-weight: bold;
             }}
             .clinical-pearl {{
@@ -343,9 +524,12 @@ class MedicalAnkiGenerator:
         doc = fitz.open(pdf_path)
         images = []
         
+        # Always use high DPI for extraction - we'll compress later for API only
+        extraction_dpi = 300 if self.preserve_quality else dpi
+        
         for page_num in range(len(doc)):
             page = doc[page_num]
-            mat = fitz.Matrix(dpi/72, dpi/72)
+            mat = fitz.Matrix(extraction_dpi/72, extraction_dpi/72)
             pix = page.get_pixmap(matrix=mat)
             img_data = pix.tobytes("png")
             img = Image.open(io.BytesIO(img_data))
@@ -353,38 +537,54 @@ class MedicalAnkiGenerator:
         
         doc.close()
         return images
+
     
-    def image_to_base64(self, image: Image.Image, apply_compression: bool = True) -> str:
-        """Convert PIL Image to base64 string with optional compression."""
+    def image_to_base64(self, image: Image.Image, for_api: bool = True) -> str:
+        """Convert PIL Image to base64 string with optional compression.
+        
+        Args:
+            image: PIL Image to convert
+            for_api: If True, apply compression for API calls. If False, preserve quality.
+        """
         buffered = io.BytesIO()
         
-        if apply_compression and self.compression_level != "none":
+        if for_api and self.compression_level != "none":
+            # Apply compression for API calls
             settings = self.compression_settings[self.compression_level]
             max_size = settings["max_size"]
             quality = settings["quality"]
             img_format = settings["format"]
             
-            if max(image.size) > max_size:
-                image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            # Create a copy to avoid modifying the original
+            img_copy = image.copy()
             
-            if img_format == "JPEG" and image.mode in ('RGBA', 'LA', 'P'):
-                rgb_image = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'P':
-                    image = image.convert('RGBA')
-                rgb_image.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                image = rgb_image
+            if max(img_copy.size) > max_size:
+                img_copy.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            
+            if img_format == "JPEG" and img_copy.mode in ('RGBA', 'LA', 'P'):
+                rgb_image = Image.new('RGB', img_copy.size, (255, 255, 255))
+                if img_copy.mode == 'P':
+                    img_copy = img_copy.convert('RGBA')
+                rgb_image.paste(img_copy, mask=img_copy.split()[-1] if img_copy.mode == 'RGBA' else None)
+                img_copy = rgb_image
             
             try:
-                image.save(buffered, format=img_format, quality=quality, optimize=True)
+                img_copy.save(buffered, format=img_format, quality=quality, optimize=True)
             except Exception as e:
                 print(f"⚠️ Compression failed, using original: {str(e)}")
                 buffered = io.BytesIO()
                 image.save(buffered, format="PNG")
         else:
-            max_size = 1024
-            if max(image.size) > max_size:
-                image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-            image.save(buffered, format="PNG", optimize=True)
+            # For Anki cards - no compression if preserve_quality
+            if self.preserve_quality and not for_api:
+                image.save(buffered, format="PNG", optimize=False)
+            else:
+                # Minimal compression
+                max_size = 1536
+                img_copy = image.copy()
+                if max(img_copy.size) > max_size:
+                    img_copy.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                img_copy.save(buffered, format="PNG", optimize=True)
         
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
@@ -491,6 +691,7 @@ AVOID cards for:
 - Overly specialized procedural details
 - Research methodology minutiae
 - Subspecialty-specific technical details
+- Future research priorities or ongoing trials
 
 Emphasize:
 - "Why" and "when" rather than exact numbers
@@ -507,6 +708,8 @@ ENSURE each card:
 - Uses same cloze number (c1) for related binary/mutually exclusive choices
 - Avoids overly simple clozes like "all" vs "some"
 - Avoids testing exact percentages unless clinically critical (prefer testing the subject or using "common/rare")
+- Spells out all abbreviations at least once
+- Includes all important symptoms/signs when listing them
 
 {cloze_instruction}
 
@@ -530,7 +733,19 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
     
     def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
         """Send slide image to OpenAI API for analysis with retry logic."""
-        base64_image = self.image_to_base64(image)
+        # Test mode check
+        if self.test_mode:
+            print(f"\n🔍 Ready to analyze slide {page_num}")
+            print("Press Enter to continue (or 'skip' to skip this slide, 'quit' to exit)...")
+            user_input = input().strip().lower()
+            if user_input == 'skip':
+                print("⏭️ Skipping this slide")
+                return {"page_num": page_num, "cards": []}
+            elif user_input == 'quit':
+                print("👋 Exiting test mode")
+                sys.exit(0)
+        
+        base64_image = self.image_to_base64(image, for_api=True)  # <-- Changed
         prompt = self._build_analysis_prompt(page_num, lecture_name)
         
         payload = {
@@ -590,10 +805,19 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         print(f"\n🔄 Batch processing {len(images)} slides in a single API call...")
         self.logger.info(f"Starting batch processing of {len(images)} slides")
         
+        # Test mode check
+        if self.test_mode:
+            print("\n🔍 Ready to batch analyze slides")
+            print("Press Enter to continue (or 'quit' to exit)...")
+            user_input = input().strip().lower()
+            if user_input == 'quit':
+                print("👋 Exiting test mode")
+                sys.exit(0)
+        
         # Prepare all images
         slides_data = []
         for img, page_num in images:
-            base64_image = self.image_to_base64(img, apply_compression=True)
+            base64_image = self.image_to_base64(img, for_api=True)  # <-- Changed
             slides_data.append({"page_num": page_num, "base64": base64_image})
             
         self.logger.info(f"Prepared {len(slides_data)} images for batch processing")
@@ -705,7 +929,21 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
     def critique_and_refine_cards(self, all_cards_data: List[Dict], lecture_name: str) -> List[Dict]:
         """Use AI model to critique and refine all cards for optimal learning."""
         print("\n🔬 Starting advanced critique and refinement pass...")
+        if self.add_hints:
+            print("💡 Hint mode enabled - adding descriptive hints to cloze deletions")
         self.logger.info(f"Starting critique for lecture: {lecture_name}")
+        
+        # Test mode check
+        if self.test_mode:
+            print("\n🔍 Ready to critique and refine cards")
+            print("Press Enter to continue (or 'skip' to skip refinement, 'quit' to exit)...")
+            user_input = input().strip().lower()
+            if user_input == 'skip':
+                print("⏭️ Skipping refinement")
+                return all_cards_data
+            elif user_input == 'quit':
+                print("👋 Exiting test mode")
+                sys.exit(0)
         
         # Create refinement log file
         refinement_log_dir = Path("anki_logs") / "refinements"
@@ -774,6 +1012,14 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
     def _build_critique_prompt(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
         """Build the critique prompt using centralized templates."""
         cloze_format_instruction = "using {{c1::}}, {{c2::}}, etc." if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
+        hint_section = ""
+        
+        if self.add_hints:
+            hint_section = f"""
+ADDITIONALLY, ADD CLOZE HINTS:
+{PromptTemplates.get_hint_instructions()}
+
+When refining cards, add appropriate hints to help students without giving away the answer."""
         
         return f"""You are an expert medical educator reviewing cloze deletion flashcards from a lecture on "{lecture_name}".
 
@@ -809,6 +1055,10 @@ REFINEMENT RULES:
 7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations)
 8. Avoid trivial clozes - test meaningful medical knowledge
 9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
+10. ENSURE all abbreviations are spelled out at least once
+11. REMOVE DUPLICATE CARDS - if multiple cards test the same concept, keep only the best one
+
+{hint_section}
 
 Review these {len(cards_for_review)} cloze deletion flashcards and optimize them by:
 
@@ -817,7 +1067,8 @@ Review these {len(cards_for_review)} cloze deletion flashcards and optimize them
 3. FIXING only genuinely ambiguous cloze deletions
 4. ADDING context where needed rather than hiding information
 5. MERGING only truly redundant cards
-6. REMOVING only:
+6. REMOVING duplicates that test the same concepts
+7. REMOVING only:
    - Cards about titles, objectives, or outlines themselves
    - Cards with unfixable ambiguity
    - Overly specialized technical details
@@ -826,12 +1077,13 @@ Review these {len(cards_for_review)} cloze deletion flashcards and optimize them
    - Research methodology minutiae
    - Historical trivia without clinical relevance
    - Subspecialty procedural minutiae
-7. PRESERVING:
+   - Future research priorities or ongoing trials
+8. PRESERVING:
    - Specific, focused cloze deletions
    - Clear context around clozes
    - Self-contained card structure
    - Learning outcomes focus
-8. EMPHASIZING:
+9. EMPHASIZING:
    - Clinical reasoning and decision-making
    - Comparative effectiveness (why choose A over B)
    - Practical applications in general practice
@@ -839,8 +1091,9 @@ Review these {len(cards_for_review)} cloze deletion flashcards and optimize them
    - First-line approaches
    - "Why" and "when" rather than exact numbers
    - Clinical decision pathways
-9. ADDING clinical pearls that help with real patient care
-10. ENSURING medical accuracy while keeping appropriate depth
+10. ADDING clinical pearls that help with real patient care
+11. ENSURING medical accuracy while keeping appropriate depth
+12. ADDING descriptive hints if requested (without giving away answers)
 
 Current flashcards:
 {json.dumps(cards_for_review, indent=2)}
@@ -870,6 +1123,12 @@ Return a JSON object with TWO arrays:
       "original_text": "Treatment includes {{{{c1::chemotherapy}}}}",
       "new_text": "First-line treatment for HER2+ breast cancer includes {{{{c1::trastuzumab}}}} with {{{{c2::chemotherapy}}}}",
       "reason": "Added specific context (HER2+) to make card self-contained, split into two clozes"
+    }},
+    {{
+      "action": "merged",
+      "original_indices": [5, 8],
+      "original_texts": ["Card about CDK4/6 inhibitors", "Another card about CDK4/6 inhibitors"],
+      "reason": "Both cards tested the same concept about CDK4/6 inhibitors"
     }}
   ]
 }}
@@ -990,7 +1249,7 @@ Return a JSON object with TWO arrays:
         return None
     
     def create_anki_package(self, cards_data: List[Dict], lecture_name: str, images: List[Tuple[Image.Image, int]], 
-                          output_dir: str, deck_suffix: str = ""):
+                        output_dir: str, deck_suffix: str = ""):
         """Create Anki package (.apkg) with cards and images using genanki."""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -1014,6 +1273,8 @@ Return a JSON object with TWO arrays:
             all_cards_text.append(f"Deck Type: {deck_suffix.replace('::', '').strip()}")
         if self.custom_tags:
             all_cards_text.append(f"Custom Tags: {', '.join(self.custom_tags)}")
+        if self.add_hints:
+            all_cards_text.append("Hint Mode: Enabled")
         all_cards_text.append("-" * 50)
         
         for slide_data in cards_data:
@@ -1024,7 +1285,18 @@ Return a JSON object with TWO arrays:
             if page_num in page_to_image:
                 image_path = temp_media_dir / image_filename
                 if not image_path.exists():
-                    page_to_image[page_num].save(image_path, "PNG", optimize=True)
+                    # THIS IS THE KEY CHANGE: Save full quality image for Anki
+                    if self.preserve_quality:
+                        # Save at full quality without any compression
+                        page_to_image[page_num].save(image_path, "PNG", optimize=False)
+                    else:
+                        # Apply some compression if preserve_quality is not enabled
+                        # But still keep it higher quality than API calls
+                        img = page_to_image[page_num]
+                        max_size = 1536  # Larger than API compression
+                        if max(img.size) > max_size:
+                            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                        img.save(image_path, "PNG", optimize=True)
                 media_files.append(str(image_path))
             
             for card in slide_cards:
@@ -1077,12 +1349,16 @@ Return a JSON object with TWO arrays:
             f.write(f"Anki Cards for {lecture_name}{deck_suffix}\n")
             f.write(f"Total cards: {card_number - 1}\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            if self.preserve_quality:
+                f.write("Image Quality: Original (preserved)\n")
             f.write("=" * 50 + "\n\n")
             f.write("\n".join(all_cards_text))
         
         print(f"\n✅ Successfully created {card_number - 1} flashcards")
         if self.card_style:
             print(f"🎨 Custom styling applied: {', '.join([f'{k}={v}' for k, v in self.card_style.items()])}")
+        if self.preserve_quality:
+            print("🖼️ Original image quality preserved in Anki cards")
         print(f"📦 Anki package saved: {apkg_filename}")
         print(f"📄 Reference text saved: {text_file}")
         
@@ -1311,6 +1587,9 @@ def main():
     - Custom styling and tags
     - Advanced AI critique mode
     - Bold formatting for key terms
+    - Test mode for controlled processing
+    - Original quality preservation option
+    - Cloze hint mode for better learning
     
     Requirements:
     1. Install: pip install pymupdf pillow requests genanki
@@ -1329,6 +1608,16 @@ def main():
         print("  --compress=LEVEL     Image compression (none/low/medium/high)")
         print("  --tags=tag1,tag2     Add custom tags to all cards")
         print("  --style=key=value    Custom styling (see examples)")
+        print("  --test-mode          Require Enter key before each API call")
+        print("  --preserve-quality   Keep original image quality in Anki cards")
+        print("  --add-hints          Add descriptive hints to cloze deletions")
+        print("\nStyle options:")
+        print("  background=#hexcolor    Background color")
+        print("  text_color=#hexcolor    Main text color")
+        print("  cloze_color=#hexcolor   Cloze deletion color")
+        print("  bold_color=#hexcolor    Bold text color (new!)")
+        print("  font_family=name        Font family")
+        print("  font_size=size          Font size (e.g., 20px)")
         print("\nCompression levels:")
         print("  none   = Original quality (default)")
         print("  low    = 1024px, JPEG 90%")
@@ -1337,12 +1626,16 @@ def main():
         print("\nExamples:")
         print("  # Standard processing")
         print("  python script.py sk-abc... lecture.pdf")
+        print("\n  # Test mode with quality preservation")
+        print("  python script.py sk-abc... lecture.pdf --test-mode --preserve-quality")
         print("\n  # Cost-efficient batch mode")
         print("  python script.py sk-abc... lecture.pdf --batch --compress=medium")
         print("\n  # Maximum efficiency")
         print("  python script.py sk-abc... /lectures/ --batch --compress=high --single-card")
-        print("\n  # Full featured")
-        print("  python script.py sk-abc... lecture.pdf --advanced --tags=cardiology --style=background=#f0f0f0")
+        print("\n  # Full featured with hints")
+        print("  python script.py sk-abc... lecture.pdf --advanced --tags=cardiology --style=background=#f0f0f0 --add-hints")
+        print("\n  # Custom colors including bold")
+        print("  python script.py sk-abc... lecture.pdf --style=background=#1a1a1a,text_color=#ffffff,cloze_color=#00ff00,bold_color=#ff6600")
         return
     
     api_key = sys.argv[1]
@@ -1353,6 +1646,9 @@ def main():
     single_card_mode = "--single-card" in sys.argv
     advanced_mode = "--advanced" in sys.argv
     batch_mode = "--batch" in sys.argv
+    test_mode = "--test-mode" in sys.argv
+    preserve_quality = "--preserve-quality" in sys.argv
+    add_hints = "--add-hints" in sys.argv
     
     # Parse compression level
     compression_level = "none"
@@ -1382,13 +1678,28 @@ def main():
         savings_map = {'low': '30%', 'medium': '50%', 'high': '70%'}
         print(f"   Estimated cost reduction: {savings_map.get(compression_level)}+")
     
+    if test_mode:
+        print("\n🧪 Test mode enabled - will pause before each API call")
+    
+    if preserve_quality:
+        print("\n🖼️ Quality preservation enabled - original image quality in Anki cards")
+    
+    if add_hints and advanced_mode:
+        print("\n💡 Hint mode enabled - will add descriptive hints during refinement")
+    elif add_hints and not advanced_mode:
+        print("\n⚠️ Hint mode requires --advanced flag to be effective")
+        add_hints = False
+    
     generator = MedicalAnkiGenerator(
         api_key, 
         single_card_mode=single_card_mode,
         custom_tags=custom_tags,
         card_style=card_style,
         batch_mode=batch_mode,
-        compression_level=compression_level
+        compression_level=compression_level,
+        test_mode=test_mode,
+        preserve_quality=preserve_quality,
+        add_hints=add_hints
     )
     
     if os.path.isfile(path) and path.endswith('.pdf'):
