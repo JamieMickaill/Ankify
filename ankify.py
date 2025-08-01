@@ -158,6 +158,19 @@ ADDITIONAL EXAMPLES TO AVOID:
 → Problem: Cloze deletions too large and ambiguous
 ✅ BETTER: "In α-thalassaemia, excess unpaired {{c1::β}} chains form {{c2::HbH (β₄)}} and excess {{c3::γ}} chains form {{c4::Hb Barts (γ₄)}}"
 
+❌ BAD: "Long-term antiplatelet prophylaxis blocks amplification pathways: aspirin irreversibly inhibits {{c1::thromboxane synthesis::mechanism}}, whereas drugs like {{c1::clopidogrel::drug}} block the platelet {{c1::ADP receptor::receptor}}; this results in incomplete platelet inhibition but a wide safety margin suitable for chronic prevention of arterial thrombosis"
+→ Problem: Missed key fact: drug name "Aspirin".
+✅ BETTER: "Long-term antiplatelet prophylaxis blocks amplification pathways: {{c2::aspirin}} irreversibly inhibits {{c1::thromboxane synthesis::mechanism}}, whereas drugs like {{c2::clopidogrel::drug}} block the platelet {{c1::ADP receptor::receptor}}; this results in incomplete platelet inhibition but a wide safety margin suitable for chronic prevention of arterial thrombosis."
+
+❌ BAD: "Plasma {{c1::fibrinogen}} is both an {{c1::abundant}} protein and an {{c1::acute-phase reactant}}, rising markedly after injury or inflammation."
+→ Problem: The fact that fibrinogen is "Abundant" is not important, this is not a testable concept for a medical student
+✅ BETTER: "Plasma {{c2::fibrinogen}} is both an abundant protein and an {{c1::acute-phase reactant}}, rising markedly after injury or inflammation."
+
+❌ BAD: "The first {{c1::management}} step when an acute haemolytic transfusion reaction is suspected is to {{c1::stop the transfusion immediately}}."
+→ Problem: The fact that a step is a "management" step is not something a student would need to memorize. Doesn't test the student on the reaction type.
+✅ BETTER: "The first management step when an {{c1::acute haemolytic transfusion}} reaction is suspected is to {{c2::stop the transfusion immediately}}."
+
+
 CRITICAL CARD EVALUATION QUESTIONS:
 Before finalizing any card, ask:
 1. Once cloze sections are deleted, can you easily guess what this card is about (the main topic - which disease, drug, cell, treatment)?
@@ -186,8 +199,8 @@ ADVANCED CLOZE PRINCIPLES:
 
 ❌ INCOMPLETE: "Early breast cancer is {{c1::potentially curable}}"
 → Misses key definitional fact
-✅ COMPLETE: "Early breast cancer is confined to {{c1::breast ± axillary nodes}} and is {{c2::potentially curable}}"
-→ Tests both definition and prognosis
+✅ COMPLETE: "{{c1::Early}} breast cancer is confined to {{c2::breast ± axillary nodes}} and is {{c3::potentially curable}}"
+→ Tests both type, definition and prognosis
 
 ❌ SUPERFICIAL: "{{c1::Palbociclib}} blocks G1-to-S transition"
 → Only tests drug name
@@ -263,7 +276,70 @@ Your task is to create flashcards appropriate for medical student level:
    - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
    - Spells out all abbreviations at least once
    - Includes all important symptoms/signs when listing them"""
+
+    @staticmethod
+    def get_fine_tuned_cloze_principles() -> str:
+        """Get fine-tuned cloze grouping principles."""
+        return """
+FINE-TUNED CLOZE GROUPING PRINCIPLES:
+
+GOAL: Create the FEWEST separate cloze cards possible while preventing excessive ambiguity.
+
+CORE PRINCIPLE: Group related concepts together with the same cloze number. When in doubt, use fewer cloze numbers rather than more (it's easier to manually split than to combine).
+
+GROUPING GUIDELINES:
+
+1. ALWAYS GROUP TOGETHER (same cloze number):
+   - Multiple symptoms/signs of the same condition
+   - Multiple examples of the same category
+   - Related anatomical structures in a list
+   - Multiple drugs with the same indication
+   - Related lab values or ranges
+   - Components of a syndrome or criteria
+
+2. SEPARATE INTO DIFFERENT CLOZE NUMBERS:
+   - Test name vs test result
+   - Drug name vs mechanism of action
+   - Disease vs treatment
+   - Cause vs effect
+   - Structure vs function
+   - Normal vs abnormal values
+
+3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
+
+✅ GOOD: "Symptoms of DKA include {{c1::polyuria}}, {{c1::polydipsia}}, and {{c1::weight loss}}, with labs showing {{c2::glucose >250}} and {{c2::pH <7.3}}"
+→ Groups symptoms together (c1) and lab values together (c2)
+
+✅ GOOD: "{{c1::Metformin}} and {{c1::sulfonylureas}} are oral agents, while {{c2::insulin}} is injectable for diabetes"
+→ Groups oral agents together, separates by route
+
+✅ GOOD: "The {{c1::indirect antiglobulin test (IAT)}} detects {{c2::unexpected red-cell antibodies}}"
+→ Separates test from what it detects to avoid ambiguity
+
+✅ GOOD: "{{c2::Aspirin}} inhibits {{c1::thromboxane synthesis}}, while {{c2::clopidogrel}} blocks {{c1::ADP receptor}}"
+→ Groups drugs together and mechanisms together
+
+4. EXAMPLES TO AVOID:
+
+❌ BAD: "The antibody screen looks for {{c1::unexpected antibodies}} using {{c1::IAT}}"
+→ Too ambiguous when both are hidden - separate test from target
+
+❌ BAD: "DKA presents with {{c1::polyuria}}, {{c2::polydipsia}}, {{c3::weight loss}}"
+→ Unnecessary separation of related symptoms
+
+5. DECISION FRAMEWORK:
+   - Can the blanks be logically filled when hidden together? → Use same cloze
+   - Would hiding them together make the card unanswerable? → Use different cloze
+   - Are they examples of the same category? → Use same cloze
+   - Do they represent cause and effect? → Use different cloze
+
+6. ERR ON THE SIDE OF GROUPING:
+   When uncertain, prefer fewer cloze numbers. It's easier to manually create additional cards later than to merge multiple cards.
+
+REMEMBER: The goal is intelligent grouping that creates fewer cards while maintaining the ability to answer each card without excessive ambiguity."""
     
+
+
     @staticmethod
     def get_json_format() -> str:
         """Get the expected JSON format for responses."""
@@ -720,74 +796,74 @@ Return a JSON array with one object per slide:
 IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
 Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
     
-    def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
-        """Send slide image to OpenAI API for analysis with retry logic."""
-        # Test mode check
-        if self.test_mode:
-            print(f"\n🔍 Ready to analyze slide {page_num}")
-            print("Press Enter to continue (or 'skip' to skip this slide, 'quit' to exit)...")
-            user_input = input().strip().lower()
-            if user_input == 'skip':
-                print("⏭️ Skipping this slide")
-                return {"page_num": page_num, "cards": []}
-            elif user_input == 'quit':
-                print("👋 Exiting test mode")
-                sys.exit(0)
+    # def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
+    #     """Send slide image to OpenAI API for analysis with retry logic."""
+    #     # Test mode check
+    #     if self.test_mode:
+    #         print(f"\n🔍 Ready to analyze slide {page_num}")
+    #         print("Press Enter to continue (or 'skip' to skip this slide, 'quit' to exit)...")
+    #         user_input = input().strip().lower()
+    #         if user_input == 'skip':
+    #             print("⏭️ Skipping this slide")
+    #             return {"page_num": page_num, "cards": []}
+    #         elif user_input == 'quit':
+    #             print("👋 Exiting test mode")
+    #             sys.exit(0)
         
-        base64_image = self.image_to_base64(image, for_api=True)  # <-- Changed
-        prompt = self._build_analysis_prompt(page_num, lecture_name)
+    #     base64_image = self.image_to_base64(image, for_api=True)  # <-- Changed
+    #     prompt = self._build_analysis_prompt(page_num, lecture_name)
         
-        payload = {
-            "model": "o3",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                    ]
-                }
-            ],
-            "max_completion_tokens": 100000
-        }
+    #     payload = {
+    #         "model": "o3",
+    #         "messages": [
+    #             {
+    #                 "role": "user",
+    #                 "content": [
+    #                     {"type": "text", "text": prompt},
+    #                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+    #                 ]
+    #             }
+    #         ],
+    #         "max_completion_tokens": 100000
+    #     }
         
-        for attempt in range(max_retries):
-            try:
-                if attempt > 0:
-                    wait_time = (2 ** attempt) + random.uniform(0, 1)
-                    print(f"\n  ⏳ Retry {attempt}/{max_retries} after {wait_time:.1f}s wait...", end='', flush=True)
-                    time.sleep(wait_time)
+    #     for attempt in range(max_retries):
+    #         try:
+    #             if attempt > 0:
+    #                 wait_time = (2 ** attempt) + random.uniform(0, 1)
+    #                 print(f"\n  ⏳ Retry {attempt}/{max_retries} after {wait_time:.1f}s wait...", end='', flush=True)
+    #                 time.sleep(wait_time)
                 
-                response = self.session.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers=self.headers,
-                    json=payload,
-                    timeout=600
-                )
+    #             response = self.session.post(
+    #                 "https://api.openai.com/v1/chat/completions",
+    #                 headers=self.headers,
+    #                 json=payload,
+    #                 timeout=600
+    #             )
                 
-                if response.status_code == 200:
-                    content = response.json()['choices'][0]['message']['content']
-                    json_match = re.search(r'\[[\s\S]*\]', content)
-                    if json_match:
-                        cards_data = json.loads(json_match.group())
-                        if self.single_card_mode:
-                            for card in cards_data:
-                                card['text'] = self.convert_to_single_card_format(card['text'])
-                        for card in cards_data:
-                            card['text'] = self.add_bold_formatting(card['text'])
-                        return {"page_num": page_num, "cards": cards_data}
-                elif response.status_code == 429:
-                    wait_time = int(response.headers.get('Retry-After', 60))
-                    print(f"\n  ⚠️ Rate limited. Waiting {wait_time}s...", end='', flush=True)
-                    time.sleep(wait_time)
-                else:
-                    print(f"\n  ❌ API Error: {response.status_code} - {response.text[:100]}...", end='', flush=True)
+    #             if response.status_code == 200:
+    #                 content = response.json()['choices'][0]['message']['content']
+    #                 json_match = re.search(r'\[[\s\S]*\]', content)
+    #                 if json_match:
+    #                     cards_data = json.loads(json_match.group())
+    #                     if self.single_card_mode:
+    #                         for card in cards_data:
+    #                             card['text'] = self.convert_to_single_card_format(card['text'])
+    #                     for card in cards_data:
+    #                         card['text'] = self.add_bold_formatting(card['text'])
+    #                     return {"page_num": page_num, "cards": cards_data}
+    #             elif response.status_code == 429:
+    #                 wait_time = int(response.headers.get('Retry-After', 60))
+    #                 print(f"\n  ⚠️ Rate limited. Waiting {wait_time}s...", end='', flush=True)
+    #                 time.sleep(wait_time)
+    #             else:
+    #                 print(f"\n  ❌ API Error: {response.status_code} - {response.text[:100]}...", end='', flush=True)
                     
-            except Exception as e:
-                print(f"\n  ❗ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:50]}...", end='', flush=True)
+    #         except Exception as e:
+    #             print(f"\n  ❗ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:50]}...", end='', flush=True)
         
-        print(f"\n  ❌ Failed after {max_retries} attempts", end='', flush=True)
-        return {"page_num": page_num, "cards": []}
+    #     print(f"\n  ❌ Failed after {max_retries} attempts", end='', flush=True)
+    #     return {"page_num": page_num, "cards": []}
     
     def analyze_slides_batch(self, images: List[Tuple[Image.Image, int]], lecture_name: str, max_retries: int = 3) -> List[Dict]:
         """Send multiple slides to OpenAI API in a single batch request."""
@@ -1011,7 +1087,7 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
                 
     def _build_critique_prompt(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
         """Build the critique prompt using centralized templates."""
-        cloze_format_instruction = "using {{c1::}}, {{c2::}}, etc." if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
+        cloze_format_instruction = f"{PromptTemplates.get_fine_tuned_cloze_principles()}" if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
         hint_section = ""
         
         if self.add_hints:
@@ -1052,7 +1128,7 @@ REFINEMENT RULES:
 4. NEVER combine multiple small clozes into one large ambiguous cloze
 5. PRESERVE the self-contained nature of cards - they must work without lecture context
 6. For binary/mutually exclusive choices (pre/post-menopausal), use SAME cloze number
-7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations)
+7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations, drugs, indications, interactions)
 8. Avoid trivial clozes - test meaningful medical knowledge
 9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
 10. ENSURE all abbreviations are spelled out at least once
@@ -1559,7 +1635,7 @@ def main():
         print("Usage: python script.py <api_key> <pdf_file_or_folder> [options]")
         print("\nOptions:")
         print("  --budget             Skip refinement stage (faster, cheaper)")
-        print("  --multiple-cloze     Create separate cards for each blank")
+        print("  --multiple-cloze     Intelligent cloze allocation (i.e. grouping by concepts)")
         print("  --no-resume          Start fresh (don't resume)")
         print("  --no-hints           Disable descriptive hints")
         print("  --compress=LEVEL     Image compression (none/low/medium/high) [default: high]")
