@@ -340,19 +340,17 @@ OVERARCHING GOAL: Specific hints without giving away the answer are optimal. Thi
 
 
 class MedicalAnkiGenerator:
-    def __init__(self, openai_api_key: str, single_card_mode: bool = False, 
-                 custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None,
-                 batch_mode: bool = False, compression_level: str = "none",
-                 test_mode: bool = False, preserve_quality: bool = False,
-                 add_hints: bool = False):
+    def __init__(self, openai_api_key: str, single_card_mode: bool = True,  # Changed default to True
+                custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None,
+                compression_level: str = "high",  # Changed default to "high"
+                test_mode: bool = False, 
+                add_hints: bool = True):  # Changed default to True, removed batch_mode and preserve_quality
         self.api_key = openai_api_key
         self.single_card_mode = single_card_mode
         self.custom_tags = custom_tags or []
         self.card_style = card_style or {}
-        self.batch_mode = batch_mode
         self.compression_level = compression_level
         self.test_mode = test_mode
-        self.preserve_quality = preserve_quality
         self.add_hints = add_hints
         self.headers = {
             "Content-Type": "application/json",
@@ -402,9 +400,9 @@ class MedicalAnkiGenerator:
         )
         self.logger = logging.getLogger(__name__)
         self.logger.info("Ankify session started")
-        self.logger.info(f"Configuration: single_card={self.single_card_mode}, batch={self.batch_mode}, "
+        self.logger.info(f"Configuration: single_card={self.single_card_mode}, "
                         f"compression={self.compression_level}, test_mode={self.test_mode}, "
-                        f"preserve_quality={self.preserve_quality}, add_hints={self.add_hints}")
+                        f"add_hints={self.add_hints}")
         
     def _create_styled_model(self):
         """Create Anki model with custom styling."""
@@ -524,8 +522,8 @@ class MedicalAnkiGenerator:
         doc = fitz.open(pdf_path)
         images = []
         
-        # Always use high DPI for extraction - we'll compress later for API only
-        extraction_dpi = 300 if self.preserve_quality else dpi
+        # Always use high DPI for extraction
+        extraction_dpi = 300
         
         for page_num in range(len(doc)):
             page = doc[page_num]
@@ -538,13 +536,11 @@ class MedicalAnkiGenerator:
         doc.close()
         return images
 
-    
     def image_to_base64(self, image: Image.Image, for_api: bool = True) -> str:
         """Convert PIL Image to base64 string with optional compression.
-        
-        Args:
-            image: PIL Image to convert
-            for_api: If True, apply compression for API calls. If False, preserve quality.
+            Args:
+                image: PIL Image to convert
+                for_api: If True, apply compression for API calls. If False, preserve quality.
         """
         buffered = io.BytesIO()
         
@@ -575,19 +571,12 @@ class MedicalAnkiGenerator:
                 buffered = io.BytesIO()
                 image.save(buffered, format="PNG")
         else:
-            # For Anki cards - no compression if preserve_quality
-            if self.preserve_quality and not for_api:
-                image.save(buffered, format="PNG", optimize=False)
-            else:
-                # Minimal compression
-                max_size = 1536
-                img_copy = image.copy()
-                if max(img_copy.size) > max_size:
-                    img_copy.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-                img_copy.save(buffered, format="PNG", optimize=True)
+            # For Anki cards - always preserve quality
+            image.save(buffered, format="PNG", optimize=False)
         
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
-    
+
+        
     def escape_html_but_preserve_formatting(self, text: str) -> str:
         """Escape HTML characters but preserve our formatting tags."""
         text = html.escape(text, quote=False)
@@ -773,7 +762,7 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=120
+                    timeout=600
                 )
                 
                 if response.status_code == 200:
@@ -853,7 +842,7 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=300
+                    timeout=600
                 )
                 
                 if response.status_code == 200:
@@ -976,39 +965,50 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
             "messages": [{"role": "user", "content": prompt}],
             "max_completion_tokens": 100000
         }
-        
-        try:
-            response = self.session.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=self.headers,
-                json=payload,
-                timeout=300
-            )
-            
-            if response.status_code == 200:
-                content = response.json()['choices'][0]['message']['content']
-                json_match = re.search(r'\{[\s\S]*\}', content)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    refined_cards = result.get('refined_cards', [])
-                    decisions = result.get('decisions', [])
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    wait_time = 30 * attempt  # Wait 30, 60, 90 seconds
+                    print(f"\n⏳ Retry {attempt}/{max_retries} after {wait_time}s wait...")
+                    time.sleep(wait_time)
+                
+                response = self.session.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=600
+                )
+                
+                if response.status_code == 200:
+                    content = response.json()['choices'][0]['message']['content']
+                    json_match = re.search(r'\{[\s\S]*\}', content)
+                    if json_match:
+                        result = json.loads(json_match.group())
+                        refined_cards = result.get('refined_cards', [])
+                        decisions = result.get('decisions', [])
+                        
+                        # Save and process refinement results
+                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
+                                                refined_cards, decisions)
+                        
+                        # Validate and organize refined cards
+                        return self._process_refined_cards(refined_cards)
                     
-                    # Save and process refinement results
-                    self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
-                                             refined_cards, decisions)
-                    
-                    # Validate and organize refined cards
-                    return self._process_refined_cards(refined_cards)
-                    
-        except Exception as e:
-            self.logger.error(f"Refinement failed: {str(e)}", exc_info=True)
-            print(f"❌ Refinement failed: {str(e)}")
-            print("⚠️ Using original cards without refinement")
-            import traceback
-            traceback.print_exc()
-        
-        return all_cards_data
-    
+            except requests.exceptions.Timeout:
+                print(f"\n⏱️ Request timeout (attempt {attempt + 1}/{max_retries})")
+                if attempt == max_retries - 1:
+                    print("❌ Refinement failed after all retries")
+                    print("⚠️ Using original cards without refinement")
+                    return all_cards_data
+            except Exception as e:
+                print(f"\n❗ Error during refinement: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                if attempt == max_retries - 1:
+                    print("⚠️ Using original cards without refinement")
+                    return all_cards_data
+                
     def _build_critique_prompt(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
         """Build the critique prompt using centralized templates."""
         cloze_format_instruction = "using {{c1::}}, {{c2::}}, etc." if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
@@ -1285,18 +1285,8 @@ Return a JSON object with TWO arrays:
             if page_num in page_to_image:
                 image_path = temp_media_dir / image_filename
                 if not image_path.exists():
-                    # THIS IS THE KEY CHANGE: Save full quality image for Anki
-                    if self.preserve_quality:
-                        # Save at full quality without any compression
-                        page_to_image[page_num].save(image_path, "PNG", optimize=False)
-                    else:
-                        # Apply some compression if preserve_quality is not enabled
-                        # But still keep it higher quality than API calls
-                        img = page_to_image[page_num]
-                        max_size = 1536  # Larger than API compression
-                        if max(img.size) > max_size:
-                            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-                        img.save(image_path, "PNG", optimize=True)
+                    # Always save at full quality for Anki cards
+                    page_to_image[page_num].save(image_path, "PNG", optimize=False)
                 media_files.append(str(image_path))
             
             for card in slide_cards:
@@ -1349,32 +1339,29 @@ Return a JSON object with TWO arrays:
             f.write(f"Anki Cards for {lecture_name}{deck_suffix}\n")
             f.write(f"Total cards: {card_number - 1}\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            if self.preserve_quality:
-                f.write("Image Quality: Original (preserved)\n")
+            f.write("Image Quality: Original (preserved)\n")
             f.write("=" * 50 + "\n\n")
             f.write("\n".join(all_cards_text))
         
         print(f"\n✅ Successfully created {card_number - 1} flashcards")
         if self.card_style:
             print(f"🎨 Custom styling applied: {', '.join([f'{k}={v}' for k, v in self.card_style.items()])}")
-        if self.preserve_quality:
-            print("🖼️ Original image quality preserved in Anki cards")
+        print("🖼️ Original image quality preserved in Anki cards")
         print(f"📦 Anki package saved: {apkg_filename}")
         print(f"📄 Reference text saved: {text_file}")
         
         return apkg_filename
-    
     def process_lecture(self, pdf_path: str, output_dir: str = "anki_output", resume: bool = True, 
-                       advanced_mode: bool = False):
+                    budget_mode: bool = False):  # Changed from advanced_mode to budget_mode
         """Process a single lecture PDF with resume capability."""
         lecture_name = Path(pdf_path).stem
         print(f"\n🔍 Processing lecture: {lecture_name}")
         self.logger.info(f"Processing lecture: {lecture_name} from {pdf_path}")
         print(f"🎯 Card mode: {'Single card (all blanks together)' if self.single_card_mode else 'Multiple cards (separate blanks)'}")
-        if self.batch_mode:
-            print(f"📦 Batch mode: Enabled (compression: {self.compression_level})")
-        if advanced_mode:
-            print("🧠 Advanced mode: Enabled (will critique and refine cards)")
+        if budget_mode:
+            print("💰 Budget mode: Enabled (skipping refinement stage)")
+        else:
+            print("🧠 Advanced refinement: Enabled")
         
         progress_dir = Path(output_dir) / "progress"
         progress_dir.mkdir(parents=True, exist_ok=True)
@@ -1403,83 +1390,53 @@ Return a JSON object with TWO arrays:
         all_cards_data = progress_data['cards_data']
         completed_slides = set(progress_data['completed_slides'])
         
-        # Process slides based on mode
-        if self.batch_mode:
-            remaining_images = [(img, page_num) for img, page_num in images if page_num not in completed_slides]
+        # Always use batch processing
+        remaining_images = [(img, page_num) for img, page_num in images if page_num not in completed_slides]
+        
+        if remaining_images:
+            print(f"\n🔄 Batch processing {len(remaining_images)} remaining slides...")
+            batch_results = self.analyze_slides_batch(remaining_images, lecture_name)
             
-            if remaining_images:
-                print(f"\n🔄 Batch processing {len(remaining_images)} remaining slides...")
-                batch_results = self.analyze_slides_batch(remaining_images, lecture_name)
+            if batch_results:
+                for slide_data in batch_results:
+                    if slide_data['cards']:
+                        all_cards_data.append(slide_data)
+                    completed_slides.add(slide_data['page_num'])
                 
-                if batch_results:
-                    for slide_data in batch_results:
-                        if slide_data['cards']:
-                            all_cards_data.append(slide_data)
-                        completed_slides.add(slide_data['page_num'])
-                    
-                    progress_data['completed_slides'] = list(completed_slides)
-                    progress_data['cards_data'] = all_cards_data
-                    progress_data['last_update'] = datetime.now().isoformat()
-                    self.save_progress(progress_file, progress_data)
-                else:
-                    print("⚠️ Batch processing failed, falling back to individual processing...")
-                    self._process_slides_individually(remaining_images, lecture_name, completed_slides, 
-                                                    all_cards_data, progress_data, progress_file)
-        else:
-            remaining_images = [(img, page_num) for img, page_num in images if page_num not in completed_slides]
-            self._process_slides_individually(remaining_images, lecture_name, completed_slides, 
-                                            all_cards_data, progress_data, progress_file)
-        
-        # Handle advanced mode or normal completion
-        if advanced_mode and all_cards_data:
-            refined_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
-            
-            print("\n📦 Creating ORIGINAL deck...")
-            original_apkg = self.create_anki_package(all_cards_data, lecture_name, images, output_dir, 
-                                                   deck_suffix="::Original")
-            
-            print("\n📦 Creating REFINED deck...")
-            refined_apkg = self.create_anki_package(refined_cards_data, lecture_name, images, output_dir, 
-                                                  deck_suffix="::Refined")
-            
-            self._cleanup_temp_files(output_dir, progress_file)
-            
-            print("\n🎯 Advanced mode complete!")
-            print(f"📊 Original: {sum(len(d['cards']) for d in all_cards_data)} cards")
-            print(f"📊 Refined: {sum(len(d['cards']) for d in refined_cards_data)} cards")
-            print("💡 Import both decks to compare and choose the best version!")
-            
-            return [original_apkg, refined_apkg]
-        else:
-            print("\n📦 Creating Anki package...")
-            apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
-            
-            self._cleanup_temp_files(output_dir, progress_file)
-            
-            return apkg_path
-    
-    def _process_slides_individually(self, remaining_images: List[Tuple[Image.Image, int]], 
-                                   lecture_name: str, completed_slides: set, all_cards_data: List[Dict],
-                                   progress_data: Dict, progress_file: Path):
-        """Process slides individually with progress tracking."""
-        total_slides = len(remaining_images) + len(completed_slides)
-        
-        for img, page_num in remaining_images:
-            print(f"🤖 Analyzing slide {page_num}/{total_slides}...", end='', flush=True)
-            slide_data = self.analyze_slide_with_ai(img, page_num, lecture_name)
-            
-            if slide_data['cards']:
-                all_cards_data.append(slide_data)
-                print(f" → {len(slide_data['cards'])} cards generated")
+                progress_data['completed_slides'] = list(completed_slides)
+                progress_data['cards_data'] = all_cards_data
+                progress_data['last_update'] = datetime.now().isoformat()
+                self.save_progress(progress_file, progress_data)
             else:
-                print(" → No cards generated")
-            
-            completed_slides.add(page_num)
-            progress_data['completed_slides'] = list(completed_slides)
-            progress_data['cards_data'] = all_cards_data
-            progress_data['last_update'] = datetime.now().isoformat()
-            
-            self.save_progress(progress_file, progress_data)
+                print("⚠️ Batch processing failed")
+                return None
+        
+        # Handle budget mode vs normal (advanced) mode
+        if budget_mode and all_cards_data:
+            # Budget mode - only create original deck
+            print("\n📦 Creating deck (budget mode - no refinement)...")
+            apkg_path = self.create_anki_package(all_cards_data, lecture_name, images, output_dir)
+            self._cleanup_temp_files(output_dir, progress_file)
+            return apkg_path
+        else:
+            # Normal mode - refine and create only refined deck
+            if all_cards_data:
+                refined_cards_data = self.critique_and_refine_cards(all_cards_data, lecture_name)
+                
+                print("\n📦 Creating refined deck...")
+                refined_apkg = self.create_anki_package(refined_cards_data, lecture_name, images, output_dir)
+                
+                self._cleanup_temp_files(output_dir, progress_file)
+                
+                print("\n🎯 Processing complete!")
+                print(f"📊 Original: {sum(len(d['cards']) for d in all_cards_data)} cards")
+                print(f"📊 Refined: {sum(len(d['cards']) for d in refined_cards_data)} cards")
+                
+                return refined_apkg
+            else:
+                print("⚠️ No cards generated")
+                return None
+
     
     def _cleanup_temp_files(self, output_dir: str, progress_file: Path):
         """Clean up temporary files after processing."""
@@ -1494,15 +1451,17 @@ Return a JSON object with TWO arrays:
             print("🧹 Cleaned up progress file")
     
     def process_folder(self, folder_path: str, output_dir: str = "anki_output", resume: bool = True, 
-                      advanced_mode: bool = False):
+                  budget_mode: bool = False):  # Changed from advanced_mode to budget_mode
         """Process all PDFs in a folder with resume capability."""
         folder = Path(folder_path)
         pdf_files = list(folder.glob("*.pdf"))
         
         print(f"\n📁 Found {len(pdf_files)} PDF files in {folder}")
         print(f"🎯 Card mode: {'Single card (all blanks together)' if self.single_card_mode else 'Multiple cards (separate blanks)'}")
-        if advanced_mode:
-            print("🧠 Advanced mode: Enabled (will critique and refine cards)")
+        if budget_mode:
+            print("💰 Budget mode: Enabled (skipping refinement stage)")
+        else:
+            print("🧠 Advanced refinement: Enabled")
         
         progress_dir = Path(output_dir) / "progress"
         progress_dir.mkdir(parents=True, exist_ok=True)
@@ -1529,7 +1488,7 @@ Return a JSON object with TWO arrays:
             print(f"{'='*60}")
             
             try:
-                self.process_lecture(str(pdf_file), output_dir, resume=resume, advanced_mode=advanced_mode)
+                self.process_lecture(str(pdf_file), output_dir, resume=resume, budget_mode=budget_mode)
                 successful += 1
                 
                 completed_files.add(str(pdf_file))
@@ -1556,6 +1515,7 @@ Return a JSON object with TWO arrays:
             print("🧹 Cleaned up folder progress file")
 
 
+
 def parse_style_options(style_string: str) -> Dict:
     """Parse style options from command line string."""
     style = {}
@@ -1576,20 +1536,17 @@ def parse_tags(tags_string: str) -> List[str]:
 
 def main():
     print("""
-    🏥 Ankify: Artificially Intelligent Flashcard Creation (Advanced Edition)
+    🏥 Ankify: Artificially Intelligent Flashcard Creation
     ======================================================
     
     Features:
-    - Automatic retry on API errors
+    - AI-powered critique and refinement (default)
+    - Single card mode (default) with all blanks together
+    - Batch processing with smart compression
+    - Descriptive hints for better learning (default)
     - Resume from interruptions
-    - Single/Multiple card modes
-    - Batch processing with compression
     - Custom styling and tags
-    - Advanced AI critique mode
     - Bold formatting for key terms
-    - Test mode for controlled processing
-    - Original quality preservation option
-    - Cloze hint mode for better learning
     
     Requirements:
     1. Install: pip install pymupdf pillow requests genanki
@@ -1601,41 +1558,32 @@ def main():
     if len(sys.argv) < 3:
         print("Usage: python script.py <api_key> <pdf_file_or_folder> [options]")
         print("\nOptions:")
-        print("  --single-card         All blanks on one card ({{c1::}} only)")
+        print("  --budget             Skip refinement stage (faster, cheaper)")
+        print("  --multiple-cloze     Create separate cards for each blank")
         print("  --no-resume          Start fresh (don't resume)")
-        print("  --advanced           Enable critique & refinement pass")
-        print("  --batch              Process all slides in one API call")
-        print("  --compress=LEVEL     Image compression (none/low/medium/high)")
+        print("  --no-hints           Disable descriptive hints")
+        print("  --compress=LEVEL     Image compression (none/low/medium/high) [default: high]")
         print("  --tags=tag1,tag2     Add custom tags to all cards")
         print("  --style=key=value    Custom styling (see examples)")
         print("  --test-mode          Require Enter key before each API call")
-        print("  --preserve-quality   Keep original image quality in Anki cards")
-        print("  --add-hints          Add descriptive hints to cloze deletions")
         print("\nStyle options:")
         print("  background=#hexcolor    Background color")
         print("  text_color=#hexcolor    Main text color")
         print("  cloze_color=#hexcolor   Cloze deletion color")
-        print("  bold_color=#hexcolor    Bold text color (new!)")
+        print("  bold_color=#hexcolor    Bold text color")
         print("  font_family=name        Font family")
         print("  font_size=size          Font size (e.g., 20px)")
-        print("\nCompression levels:")
-        print("  none   = Original quality (default)")
-        print("  low    = 1024px, JPEG 90%")
-        print("  medium = 800px, JPEG 85% (recommended for batch)")
-        print("  high   = 512px, JPEG 80% (maximum savings)")
         print("\nExamples:")
-        print("  # Standard processing")
+        print("  # Standard processing (with refinement)")
         print("  python script.py sk-abc... lecture.pdf")
-        print("\n  # Test mode with quality preservation")
-        print("  python script.py sk-abc... lecture.pdf --test-mode --preserve-quality")
-        print("\n  # Cost-efficient batch mode")
-        print("  python script.py sk-abc... lecture.pdf --batch --compress=medium")
-        print("\n  # Maximum efficiency")
-        print("  python script.py sk-abc... /lectures/ --batch --compress=high --single-card")
-        print("\n  # Full featured with hints")
-        print("  python script.py sk-abc... lecture.pdf --advanced --tags=cardiology --style=background=#f0f0f0 --add-hints")
-        print("\n  # Custom colors including bold")
-        print("  python script.py sk-abc... lecture.pdf --style=background=#1a1a1a,text_color=#ffffff,cloze_color=#00ff00,bold_color=#ff6600")
+        print("\n  # Budget mode (no refinement)")
+        print("  python script.py sk-abc... lecture.pdf --budget")
+        print("\n  # Multiple cloze cards")
+        print("  python script.py sk-abc... lecture.pdf --multiple-cloze")
+        print("\n  # Process folder with custom tags")
+        print("  python script.py sk-abc... /lectures/ --tags=cardiology,exam2024")
+        print("\n  # Custom styling")
+        print("  python script.py sk-abc... lecture.pdf --style=background=#1a1a1a,text_color=#ffffff,cloze_color=#00ff00")
         return
     
     api_key = sys.argv[1]
@@ -1643,22 +1591,20 @@ def main():
     
     # Parse options
     resume = "--no-resume" not in sys.argv
-    single_card_mode = "--single-card" in sys.argv
-    advanced_mode = "--advanced" in sys.argv
-    batch_mode = "--batch" in sys.argv
+    single_card_mode = "--multiple-cloze" not in sys.argv  # Inverted logic
+    budget_mode = "--budget" in sys.argv
     test_mode = "--test-mode" in sys.argv
-    preserve_quality = "--preserve-quality" in sys.argv
-    add_hints = "--add-hints" in sys.argv
+    add_hints = "--no-hints" not in sys.argv  # Inverted logic
     
     # Parse compression level
-    compression_level = "none"
+    compression_level = "high"  # Default
     for arg in sys.argv:
         if arg.startswith("--compress="):
             level = arg.split("=", 1)[1]
             if level in ["none", "low", "medium", "high"]:
                 compression_level = level
             else:
-                print(f"⚠️ Invalid compression level '{level}', using 'none'")
+                print(f"⚠️ Invalid compression level '{level}', using 'high'")
     
     # Parse custom tags
     custom_tags = []
@@ -1672,40 +1618,29 @@ def main():
         if arg.startswith("--style="):
             card_style = parse_style_options(arg.split("=", 1)[1])
     
-    # Show cost estimate for batch mode
-    if batch_mode and compression_level != "none":
-        print(f"\n💰 Cost optimization: Batch mode with {compression_level} compression")
-        savings_map = {'low': '30%', 'medium': '50%', 'high': '70%'}
-        print(f"   Estimated cost reduction: {savings_map.get(compression_level)}+")
+    # Show mode information
+    if budget_mode:
+        print(f"\n💰 Budget mode: Skipping refinement stage")
+    else:
+        print(f"\n🧠 Advanced mode: AI critique and refinement enabled")
     
     if test_mode:
-        print("\n🧪 Test mode enabled - will pause before each API call")
-    
-    if preserve_quality:
-        print("\n🖼️ Quality preservation enabled - original image quality in Anki cards")
-    
-    if add_hints and advanced_mode:
-        print("\n💡 Hint mode enabled - will add descriptive hints during refinement")
-    elif add_hints and not advanced_mode:
-        print("\n⚠️ Hint mode requires --advanced flag to be effective")
-        add_hints = False
+        print("🧪 Test mode enabled - will pause before each API call")
     
     generator = MedicalAnkiGenerator(
         api_key, 
         single_card_mode=single_card_mode,
         custom_tags=custom_tags,
         card_style=card_style,
-        batch_mode=batch_mode,
         compression_level=compression_level,
         test_mode=test_mode,
-        preserve_quality=preserve_quality,
         add_hints=add_hints
     )
     
     if os.path.isfile(path) and path.endswith('.pdf'):
-        generator.process_lecture(path, resume=resume, advanced_mode=advanced_mode)
+        generator.process_lecture(path, resume=resume, budget_mode=budget_mode)
     elif os.path.isdir(path):
-        generator.process_folder(path, resume=resume, advanced_mode=advanced_mode)
+        generator.process_folder(path, resume=resume, budget_mode=budget_mode)
     else:
         print("❌ Please provide a valid PDF file or folder path")
 
