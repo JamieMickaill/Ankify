@@ -170,6 +170,26 @@ ADDITIONAL EXAMPLES TO AVOID:
 → Problem: The fact that a step is a "management" step is not something a student would need to memorize. Doesn't test the student on the reaction type.
 ✅ BETTER: "The first management step when an {{c1::acute haemolytic transfusion}} reaction is suspected is to {{c2::stop the transfusion immediately}}."
 
+❌ BAD: "Routine coagulation monitoring with {{c1::INR}} is {{c2::not required}} for dabigatran, rivaroxaban or apixaban but is mandatory for warfarin"
+→ Problem: "but is mandatory" reveals that c2 is "not required"
+✅ BETTER: "{{c1::INR}} monitoring is {{c2::not required}} for DOACs, {{c2::required}} for warfarin"
+
+❌ BAD: "Life-threatening bleeding on rivaroxaban can be treated with {{c1::andexanet alfa}} (or {{c1::PCC}} if andexanet is unavailable)"
+→ Problem: "if andexanet is unavailable" gives away first cloze
+✅ BETTER: "Life-threatening bleeding on rivaroxaban: use {{c1::andexanet alfa}} (first-line) or {{c1::PCC}} (if first-line unavailable)"
+
+❌ BAD: "Haemostasis is the {{c1::physiological}} sealing of vessel defects"
+→ Problem: Testing that something is "physiological" is not meaningful
+✅ BETTER: "Haemostasis involves {{c1::platelet adhesion}} and {{c1::fibrin deposition}}"
+
+❌ BAD: "Karyotyping detects {{c1::t(14;18) in follicular lymphoma::translocation}}"
+→ Problem: Both translocation AND disease in one cloze is too ambiguous
+✅ BETTER: "Follicular lymphoma shows {{c1::t(14;18)}} translocation" OR "{{c1::t(14;18)}} is seen in {{c2::follicular lymphoma}}"
+
+❌ BAD: "Successful outcomes depend on initiating interventions at the {{c1::right time}} — {{c1::neither too early nor too late}}"
+→ Problem: Not a testable medical concept
+✅ SKIP THIS CONTENT - not assessable
+
 
 CRITICAL CARD EVALUATION QUESTIONS:
 Before finalizing any card, ask:
@@ -232,50 +252,54 @@ PERCENTAGES AND STATISTICS:
     def get_content_focus() -> str:
         """Get guidelines for what content to focus on."""
         return """
+
 Your task is to create flashcards appropriate for medical student level:
 
-1. Extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture)
-2. Create cloze deletion flashcards focusing on:
-   - Core pathophysiology and disease mechanisms
-   - Key clinical features and presentations
-   - First-line treatments and management principles
-   - Important differential diagnoses
-   - High-yield diagnostic approaches
-   - Clinical decision-making concepts
-   - Best practice guidelines (not minute details)
-   - Important contraindications and safety considerations
+1) For EACH slide, extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture).
 
-3. SKIP slides that only contain:
-   - Title/topic announcements
-   - Learning objectives/outcomes lists
-   - Lecture outlines or agendas
-   - Speaker introductions
-   - References/bibliography
+2) FOCUS on creating cards for:
+- Core pathophysiology and disease mechanisms
+- Key clinical features and presentations
+- First-line treatments and management principles
+- Important differential diagnoses
+- High-yield diagnostic approaches
+- Clinical decision-making concepts
+- Best practice guidelines (not minute details)
+- Important contraindications and safety considerations
 
-4. AVOID creating cards for:
-   - Specific radiation doses or technical parameters
-   - Names/authors of individual studies (unless landmark trials)
-   - Overly specialized procedural details
-   - Research methodology minutiae
-   - Historical facts unless clinically relevant
-   - Subspecialty-specific technical details
-   - Future research priorities or ongoing trials
+3) AVOID creating cards for:
+- Specific radiation doses or technical parameters
+- Names/authors of individual studies (unless landmark trials)
+- Overly specialized procedural details
+- Research methodology minutiae
+- Historical facts unless clinically relevant
+- Subspecialty-specific technical details
+- Future research priorities or ongoing trials
 
-5. ENSURE each card:
-   - Can be understood without seeing the original lecture
-   - Has specific, unambiguous cloze deletions
-   - Tests one clear concept per cloze
-   - Provides enough context to identify the answer
-   - Emphasizes "why" and "when" rather than exact numbers
-   - Focuses on clinical reasoning and decision pathways
-   - Highlights comparative effectiveness (Drug A vs Drug B)
-   - Includes practical clinical applications
-   - Tests ALL key facts in a statement (definitions, mechanisms, effects)
-   - Uses same cloze number (c1) when testing related binary choices
-   - Avoids overly simple clozes like "all" vs "some"
-   - Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
-   - Spells out all abbreviations at least once
-   - Includes all important symptoms/signs when listing them"""
+4) SKIP slides that only contain:
+- Title/topic announcements
+- Learning objectives/outcomes lists
+- Lecture outlines or agendas
+- Speaker introductions
+- References/bibliography
+
+5) Emphasize:
+- "Why" and "when" rather than exact numbers
+- Clinical reasoning and decision pathways
+- Comparative effectiveness
+- Practical clinical applications
+
+6) ENSURE each card:
+- Can be understood without seeing the original lecture
+- Has specific, unambiguous cloze deletions
+- Tests one clear concept per cloze
+- Provides enough context to identify the answer
+- Tests ALL key facts (definitions, mechanisms, effects, durations)
+- Uses same cloze number (c1) for related binary/mutually exclusive choices
+- Avoids overly simple clozes like "all" vs "some"
+- Avoids testing exact percentages unless clinically critical (prefer testing the condition/gene/drug name or using "common/rare")
+- Spells out all abbreviations at least once
+- Includes all important symptoms/signs when listing them"""
 
     @staticmethod
     def get_fine_tuned_cloze_principles() -> str:
@@ -296,6 +320,9 @@ GROUPING GUIDELINES:
    - Multiple drugs with the same indication
    - Related lab values or ranges
    - Components of a syndrome or criteria
+   - Chromosomes in translocations (e.g., both 8 and 14 in t(8;14))
+   - Markers that are co-expressed (e.g., CD5 and CD23)
+   - Binary/mutually exclusive choices (prophylaxis vs treatment)
 
 2. SEPARATE INTO DIFFERENT CLOZE NUMBERS:
    - Test name vs test result
@@ -304,6 +331,8 @@ GROUPING GUIDELINES:
    - Cause vs effect
    - Structure vs function
    - Normal vs abnormal values
+   - Factor levels vs severity grades
+   - Variant types vs prognosis
 
 3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
 
@@ -319,6 +348,18 @@ GROUPING GUIDELINES:
 ✅ GOOD: "{{c2::Aspirin}} inhibits {{c1::thromboxane synthesis}}, while {{c2::clopidogrel}} blocks {{c1::ADP receptor}}"
 → Groups drugs together and mechanisms together
 
+✅ GOOD: "Burkitt lymphoma involves chromosome {{c1::8}} (c-MYC) and {{c1::14}} (IgH)"
+→ Groups related chromosomes in translocation
+
+✅ GOOD: "Co-expression of {{c1::CD5}} and {{c1::CD23}} characterizes {{c2::CLL/SLL}}"
+→ Groups co-expressed markers together
+
+✅ GOOD: "In Hodgkin lymphoma, {{c1::lymphocyte-rich}} has {{c2::best}} prognosis, {{c1::lymphocyte-depleted}} has {{c2::worst}} prognosis"
+→ Groups variants together, groups prognoses together
+
+✅ GOOD: "Factor levels {{c1::<1%}} indicate {{c2::severe}} haemophilia, {{c1::1-5%}} indicate {{c2::moderate}}, {{c1::5-40%}} indicate {{c2::mild}}"
+→ Groups factor levels together, groups severities together
+
 4. EXAMPLES TO AVOID:
 
 ❌ BAD: "The antibody screen looks for {{c1::unexpected antibodies}} using {{c1::IAT}}"
@@ -327,40 +368,60 @@ GROUPING GUIDELINES:
 ❌ BAD: "DKA presents with {{c1::polyuria}}, {{c2::polydipsia}}, {{c3::weight loss}}"
 → Unnecessary separation of related symptoms
 
+❌ BAD: "Chromosome {{c1::8}} and {{c2::14}} in Burkitt lymphoma"
+→ Should group chromosomes in same translocation
+
+❌ BAD: "Subcutaneous heparin for {{c1::prophylaxis}}, IV for {{c2::treatment}}"
+→ Binary choice makes other obvious - use same cloze
+
+❌ BAD: "CD5{{c1::+}} and CD23{{c2::+}} in CLL"
+→ Co-expressed markers should be grouped
+
 5. DECISION FRAMEWORK:
    - Can the blanks be logically filled when hidden together? → Use same cloze
    - Would hiding them together make the card unanswerable? → Use different cloze
    - Are they examples of the same category? → Use same cloze
    - Do they represent cause and effect? → Use different cloze
+   - Are they binary/mutually exclusive choices? → Use same cloze
+   - Are they components of same translocation/co-expression? → Use same cloze
 
 6. ERR ON THE SIDE OF GROUPING:
    When uncertain, prefer fewer cloze numbers. It's easier to manually create additional cards later than to merge multiple cards.
 
 REMEMBER: The goal is intelligent grouping that creates fewer cards while maintaining the ability to answer each card without excessive ambiguity."""
-    
 
 
     @staticmethod
     def get_json_format() -> str:
         """Get the expected JSON format for responses."""
         return """
+        
 Format your response as a JSON array of flashcard objects, where each object has:
 - "text": The complete text with cloze deletions in {{c1::answer}} format (can have multiple clozes {{c1::}}, {{c2::}}, etc.)
 - "facts": Array of the key facts being tested
 - "context": Brief context about why this is important FOR A MEDICAL STUDENT
 - "clinical_relevance": Optional field for clinical pearls or practical applications
 
+Return a JSON array with one object per slide:
 Example:
 [
-  {
-    "text": "In type 2 diabetes, {{c1::Metformin}} is the first-line medication because it {{c2::does not cause hypoglycemia}} and has {{c3::cardiovascular benefits}}",
-    "facts": ["Metformin", "does not cause hypoglycemia", "cardiovascular benefits"],
-    "context": "Essential knowledge for diabetes management in primary care",
-    "clinical_relevance": "Always check renal function before prescribing"
-  }
+  {{
+    "page_num": 1,
+    "cards": [
+      {{
+        "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is first-line because it {{{{c2::doesn't cause hypoglycemia}}}}",
+        "facts": ["Metformin", "doesn't cause hypoglycemia"],
+        "context": "Essential diabetes management knowledge",
+        "clinical_relevance": "Check renal function before prescribing"
+      }}
+    ]
+  }}
 ]
 
-Create concise, self-contained cards testing PRACTICAL MEDICAL KNOWLEDGE with clear, unambiguous cloze deletions."""
+IMPORTANT: Include ALL slides / page_num in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
+Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context.
+
+"""
 
     @staticmethod
     def get_hint_instructions() -> str:
@@ -388,6 +449,10 @@ GOOD HINT CATEGORIES:
 - "contraindication" - for when not to use
 - "indication" - for when to use
 - "prostate cancer type" - for specific prostate cancer variants
+- "vitals" - for vital signs (temperature, heart rate, blood pressure)
+- "symptom" - for subjective patient complaints
+- "severe" - for severe complications or conditions
+- "management" - for treatment actions
 
 EXAMPLES:
 ✅ "Tamoxifen is preferred for {{c1::premenopausal::hormonal status}} women"
@@ -397,6 +462,8 @@ Why: TNBC could show anything (initially ambiguous), hint narrowed down to those
 ✅ "Adjuvant therapy is given for {{c1::5 years::duration}} (10 if high-risk)"
 Why: Initial interpretation could be indication, demographic, pathological subtype -> hint narrows down to duration without giving away answer.
 ✅ "{{c1::CDK4/6 inhibitors::drug class}} like palbociclib block cell cycle"
+✅ "During transfusion, sudden onset of {{c1::fever or hypothermia::vitals}}, {{c1::rigors::symptom}}, {{c1::tachycardia::vitals}}, or progression to {{c1::shock/multi-organ failure::severe}} should raise suspicion"
+Why: More specific hints (vitals vs symptom vs severe) reduce ambiguity without revealing answers
 
 AVOID:
 ❌ Valueless hints: The prostate cancer survivorship essentials framework lists six domains: {{c1::Health promotion &amp; advocacy::domain}}, {{c1::Evidence‑based interventions::domain}}, {{c1::Personal agency::domain}}, {{c1::Vigilance::domain}}, {{c1::Care coordination::domain}}, and {{c1::Shared management::domain}}.
@@ -409,11 +476,14 @@ WHY: "action" is a generic placeholder that provides no hint value and is alread
 WHY: The deletion is not just a percentage but a percentage AND a component of blood. Hints must accurately describe the WHOLE cloze deletion content
 
 ❌ Redundant hints: {{c1::nausea::nausea symptom}}
-❌ Hints that give away the answer 
+
+❌ Hints that give away the answer: In HITTS, platelet transfusion is {{c1::contra-indicated::contraindication}}
+WHY: The hint "contraindication" is literally the same as the cloze "contra-indicated" - provides no value
+
+❌ Hints placed outside cloze: Key features include {{c1::shortness of breath}}, {{c1::pleuritic chest pain}}::clinical feature
+WHY: Hint must be inside EACH cloze deletion: {{c1::shortness of breath::clinical feature}}, {{c1::pleuritic chest pain::clinical feature}}
 
 OVERARCHING GOAL: Specific hints without giving away the answer are optimal. This is challenging however, and you should err on the side of ambiguity rather than specificity."""
-
-
 
 class MedicalAnkiGenerator:
     def __init__(self, openai_api_key: str, single_card_mode: bool = True,  # Changed default to True
@@ -697,25 +767,6 @@ class MedicalAnkiGenerator:
         
         return text
     
-    def _build_analysis_prompt(self, page_num: int, lecture_name: str) -> str:
-        """Build the analysis prompt using centralized templates."""
-        cloze_instruction = PromptTemplates.get_cloze_instruction(self.single_card_mode)
-        
-        return f"""You are analyzing slide {page_num} from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
-        
-{PromptTemplates.get_common_rules()}
-
-{PromptTemplates.get_cloze_examples()}
-
-{PromptTemplates.get_advanced_principles()}
-
-{PromptTemplates.get_percentage_guidelines()}
-
-{PromptTemplates.get_content_focus()}
-
-{cloze_instruction}
-
-{PromptTemplates.get_json_format()}"""
     
     def _build_batch_analysis_prompt(self, num_slides: int, lecture_name: str) -> str:
         """Build the batch analysis prompt using centralized templates."""
@@ -731,71 +782,12 @@ class MedicalAnkiGenerator:
 
 {PromptTemplates.get_percentage_guidelines()}
 
-For EACH slide, extract MEDICAL FACTS AND CONCEPTS that medical students need to know for exams and clinical practice (not meta-information about the lecture).
-
-SKIP slides that only contain:
-- Title/topic announcements
-- Learning objectives/outcomes lists
-- Lecture outlines or agendas
-- Speaker introductions
-- References/bibliography
-
-FOCUS on creating cards for:
-- Core pathophysiology and disease mechanisms
-- Key clinical features and presentations
-- First-line treatments and management principles
-- Important differential diagnoses
-- High-yield diagnostic approaches
-- Clinical decision-making concepts
-- Best practice guidelines (not minute details)
-- Important contraindications and safety
-
-AVOID cards for:
-- Specific radiation doses or technical parameters
-- Names/authors of individual studies (unless landmark trials)
-- Overly specialized procedural details
-- Research methodology minutiae
-- Subspecialty-specific technical details
-- Future research priorities or ongoing trials
-
-Emphasize:
-- "Why" and "when" rather than exact numbers
-- Clinical reasoning and decision pathways
-- Comparative effectiveness
-- Practical clinical applications
-
-ENSURE each card:
-- Can be understood without seeing the original lecture
-- Has specific, unambiguous cloze deletions
-- Tests one clear concept per cloze
-- Provides enough context to identify the answer
-- Tests ALL key facts (definitions, mechanisms, effects, durations)
-- Uses same cloze number (c1) for related binary/mutually exclusive choices
-- Avoids overly simple clozes like "all" vs "some"
-- Avoids testing exact percentages unless clinically critical (prefer testing the subject or using "common/rare")
-- Spells out all abbreviations at least once
-- Includes all important symptoms/signs when listing them
+{PromptTemplates.get_content_focus()}
 
 {cloze_instruction}
 
-Return a JSON array with one object per slide:
-[
-  {{
-    "page_num": 1,
-    "cards": [
-      {{
-        "text": "In type 2 diabetes, {{{{c1::Metformin}}}} is first-line because it {{{{c2::doesn't cause hypoglycemia}}}}",
-        "facts": ["Metformin", "doesn't cause hypoglycemia"],
-        "context": "Essential diabetes management knowledge",
-        "clinical_relevance": "Check renal function before prescribing"
-      }}
-    ]
-  }}
-]
-
-IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
-Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
-    
+{PromptTemplates.get_json_format()}
+"""
 
     def analyze_slides_batch(self, images: List[Tuple[Image.Image, int]], lecture_name: str, max_retries: int = 3) -> List[Dict]:
         """Send multiple slides to OpenAI API in a single batch request."""
@@ -925,19 +917,17 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         return []
     
     def critique_and_refine_cards(self, all_cards_data: List[Dict], lecture_name: str) -> List[Dict]:
-        """Use AI model to critique and refine all cards for optimal learning."""
-        print("\n🔬 Starting advanced critique and refinement pass...")
-        if self.add_hints:
-            print("💡 Hint mode enabled - adding descriptive hints to cloze deletions")
-        self.logger.info(f"Starting critique for lecture: {lecture_name}")
+        """Use AI model to critique and refine cards in three separate stages."""
+        print("\n🔬 Starting multi-stage optimization process...")
+        self.logger.info(f"Starting multi-stage optimization for lecture: {lecture_name}")
         
         # Test mode check
         if self.test_mode:
-            print("\n🔍 Ready to critique and refine cards")
-            print("Press Enter to continue (or 'skip' to skip refinement, 'quit' to exit)...")
+            print("\n🔍 Ready to start multi-stage optimization")
+            print("Press Enter to continue (or 'skip' to skip all optimization, 'quit' to exit)...")
             user_input = input().strip().lower()
             if user_input == 'skip':
-                print("⏭️ Skipping refinement")
+                print("⏭️ Skipping all optimization")
                 return all_cards_data
             elif user_input == 'quit':
                 print("👋 Exiting test mode")
@@ -967,7 +957,9 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         print(f"📊 Analyzing {total_original_cards} cards for optimization...")
         self.logger.info(f"Total cards to analyze: {total_original_cards}")
         
-        prompt = self._build_critique_prompt(lecture_name, cards_for_review)
+        # Stage 1: Refinement only
+        print("\n📝 Stage 1/3: Initial refinement and quality improvement...")
+        prompt = self._build_critique_prompt_refinement_only(lecture_name, cards_for_review)
         
         payload = {
             "model": "gpt-5",
@@ -975,11 +967,15 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
             "max_completion_tokens": 100000,
             "reasoning_effort": "high",
         }
+        
         max_retries = 3
+        refined_cards = None
+        decisions = []
+        
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
-                    wait_time = 30 * attempt  # Wait 30, 60, 90 seconds
+                    wait_time = 30 * attempt
                     print(f"\n⏳ Retry {attempt}/{max_retries} after {wait_time}s wait...")
                     time.sleep(wait_time)
                 
@@ -997,20 +993,15 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
                         result = json.loads(json_match.group())
                         refined_cards = result.get('refined_cards', [])
                         decisions = result.get('decisions', [])
-                        
-                        # Save and process refinement results
-                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
-                                                refined_cards, decisions)
-                        
-                        # Validate and organize refined cards
-                        return self._process_refined_cards(refined_cards)
-                    
+                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, refined_cards, decisions)
+                        break
             except requests.exceptions.Timeout:
                 print(f"\n⏱️ Request timeout (attempt {attempt + 1}/{max_retries})")
                 if attempt == max_retries - 1:
                     print("❌ Refinement failed after all retries")
                     print("⚠️ Using original cards without refinement")
                     return all_cards_data
+                        
             except Exception as e:
                 print(f"\n❗ Error during refinement: {str(e)}")
                 import traceback
@@ -1018,135 +1009,280 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
                 if attempt == max_retries - 1:
                     print("⚠️ Using original cards without refinement")
                     return all_cards_data
-                
-    def _build_critique_prompt(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
-        """Build the critique prompt using centralized templates."""
-        cloze_format_instruction = f"{PromptTemplates.get_fine_tuned_cloze_principles()}" if not self.single_card_mode else "using ONLY {{c1::}} for all clozes"
-        hint_section = ""
         
-        if self.add_hints:
-            hint_section = f"""
-ADDITIONALLY, YOU MUST ADD CLOZE HINTS:
-{PromptTemplates.get_hint_instructions()}
-
-When refining cards, add appropriate hints to help students without giving away the answer."""
+        if not refined_cards:
+            print("⚠️ Stage 1 failed, using original cards")
+            return all_cards_data
+        
+        print(f"✅ Stage 1 complete: {total_original_cards} → {len(refined_cards)} cards")
+        
+        # Stage 2: Add hints (if enabled)
+        if self.add_hints and refined_cards:
+            print("\n💡 Stage 2/3: Adding descriptive hints...")
+            prompt = self._build_hints_only_prompt(lecture_name, refined_cards)
+            
+            payload = {
+                "model": "gpt-5",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_completion_tokens": 100000,
+                "reasoning_effort": "high",
+            }
+            
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        wait_time = 30 * attempt
+                        print(f"\n⏳ Retry {attempt}/{max_retries} after {wait_time}s wait...")
+                        time.sleep(wait_time)
+                    
+                    response = self.session.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers=self.headers,
+                        json=payload,
+                        timeout=600
+                    )
+                    
+                    if response.status_code == 200:
+                        content = response.json()['choices'][0]['message']['content']
+                        json_match = re.search(r'\{[\s\S]*\}', content)
+                        if json_match:
+                            result = json.loads(json_match.group())
+                            cards_with_hints = result.get('cards_with_hints', [])
+                            if cards_with_hints:
+                                refined_cards = cards_with_hints
+                                print(f"✅ Stage 2 complete: Hints added to {len(refined_cards)} cards")
+                            break
+                            
+                except Exception as e:
+                    print(f"\n❗ Error during hint addition: {str(e)}")
+                    if attempt == max_retries - 1:
+                        print("⚠️ Continuing without hints")
+        else:
+            print("\n⏭️ Stage 2/3: Skipping hints (disabled)")
+        
+        # Stage 3: Optimize grouping (if not in single card mode)
+        if not self.single_card_mode and refined_cards:
+            print("\n🔄 Stage 3/3: Optimizing cloze grouping...")
+            prompt = self._build_grouping_only_prompt(lecture_name, refined_cards)
+            
+            payload = {
+                "model": "gpt-5",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_completion_tokens": 100000,
+                "reasoning_effort": "high",
+            }
+            
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        wait_time = 30 * attempt
+                        print(f"\n⏳ Retry {attempt}/{max_retries} after {wait_time}s wait...")
+                        time.sleep(wait_time)
+                    
+                    response = self.session.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers=self.headers,
+                        json=payload,
+                        timeout=600
+                    )
+                    
+                    if response.status_code == 200:
+                        content = response.json()['choices'][0]['message']['content']
+                        json_match = re.search(r'\{[\s\S]*\}', content)
+                        if json_match:
+                            result = json.loads(json_match.group())
+                            optimized_cards = result.get('optimized_cards', [])
+                            if optimized_cards:
+                                refined_cards = optimized_cards
+                                print(f"✅ Stage 3 complete: Grouping optimized for {len(refined_cards)} cards")
+                            break
+                            
+                except Exception as e:
+                    print(f"\n❗ Error during grouping optimization: {str(e)}")
+                    if attempt == max_retries - 1:
+                        print("⚠️ Using cards without grouping optimization")
+        else:
+            print("\n⏭️ Stage 3/3: Skipping grouping (single card mode)")
+        
+        # Save and process refinement results
+        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
+                                refined_cards, decisions)
+        
+        # Validate and organize refined cards
+        return self._process_refined_cards(refined_cards)
+     
+    def _build_critique_prompt_refinement_only(self, lecture_name: str, cards_for_review: List[Dict]) -> str:
+        """Build the critique prompt without hints or grouping instructions."""
         
         return f"""You are an expert medical educator reviewing cloze deletion flashcards from a lecture on "{lecture_name}".
 
-CRITICAL INSTRUCTIONS:
-1. ALL cards MUST remain in cloze deletion format {cloze_format_instruction}
-2. PRESERVE the cloze deletion syntax exactly - do not convert to Q&A format
-3. Each refined card must have at least one cloze deletion
-4. Cards will be reviewed WITHOUT lecture context - ensure self-contained clarity
-5. Keep content at MEDICAL STUDENT level - practical knowledge over specialist minutiae
+    CRITICAL INSTRUCTIONS:
+    1. ALL cards MUST remain in cloze deletion format 
+    2. PRESERVE the cloze deletion syntax exactly - do not convert to Q&A format
+    3. Each refined card must have at least one cloze deletion
+    4. Cards will be reviewed WITHOUT lecture context - ensure self-contained clarity
+    5. Keep content at MEDICAL STUDENT level - practical knowledge over specialist minutiae
 
-⚠️ CRITICAL: MAINTAIN CLOZE DELETION QUALITY ⚠️
-The original cards follow good cloze deletion patterns. When refining, you MUST preserve these qualities:
+    ⚠️ CRITICAL: MAINTAIN CLOZE DELETION QUALITY ⚠️
+    The original cards follow good cloze deletion patterns. When refining, you MUST preserve these qualities:
 
-{PromptTemplates.get_cloze_examples()}
+    {PromptTemplates.get_cloze_examples()}
 
-GOOD PATTERNS TO MAINTAIN (Additional Examples):
-✅ "Metastatic ER+ cancer recurs {{{{c1::5-15 years}}}} post-diagnosis and metastasizes to {{{{c2::bone}}}}"
-   - Two disparate facts as separate clozes
+    GOOD PATTERNS TO MAINTAIN (Additional Examples):
+    ✅ "Metastatic ER+ cancer recurs {{{{c1::5-15 years}}}} post-diagnosis and metastasizes to {{{{c2::bone}}}}"
+    - Two disparate facts as separate clozes
 
-BAD PATTERNS TO AVOID CREATING (Additional Examples):
-❌ "Tamoxifen for {{{{c1::premenopausal}}}}, AIs for {{{{c2::postmenopausal}}}}"
-   - c2 reveals c1 (binary choice) - use same cloze number instead
-❌ "Therapy is recommended for {{{{c1::all}}}} ER+ cancers"
-   - Too simple, only tests "all" vs "some"
+    BAD PATTERNS TO AVOID CREATING (Additional Examples):
+    ❌ "Tamoxifen for {{{{c1::premenopausal}}}}, AIs for {{{{c2::postmenopausal}}}}"
+    - c2 reveals c1 (binary choice) - use same cloze number instead
+    ❌ "Therapy is recommended for {{{{c1::all}}}} ER+ cancers"
+    - Too simple, only tests "all" vs "some"
 
-REFINEMENT RULES:
-1. If a card already has good cloze patterns, DO NOT make clozes more ambiguous
-2. If a card lacks context, ADD context rather than hiding more information
-3. If a cloze is too broad, SPLIT it into smaller, specific clozes
-4. NEVER combine multiple small clozes into one large ambiguous cloze
-5. PRESERVE the self-contained nature of cards - they must work without lecture context
-6. For binary/mutually exclusive choices (pre/post-menopausal), use SAME cloze number
-7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations, drugs, indications, interactions)
-8. Avoid trivial clozes - test meaningful medical knowledge
-9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
-10. ENSURE all abbreviations are spelled out at least once
-11. REMOVE DUPLICATE CARDS - if multiple cards test the same concept, keep only the best one
-12. IF INSTRUCTED TO BOTH ADD HINTS AND REFINE CLOZE GROUPING, ENSURE THAT BOTH TASKS ARE COMPLETED
+    REFINEMENT RULES:
+    1. If a card already has good cloze patterns, DO NOT make clozes more ambiguous
+    2. If a card lacks context, ADD context rather than hiding more information
+    3. If a cloze is too broad, SPLIT it into smaller, specific clozes
+    4. NEVER combine multiple small clozes into one large ambiguous cloze
+    5. PRESERVE the self-contained nature of cards - they must work without lecture context
+    6. For binary/mutually exclusive choices (pre/post-menopausal), use SAME cloze number
+    7. Ensure ALL key facts are tested (definitions, mechanisms, effects, durations, drugs, indications, interactions)
+    8. Avoid trivial clozes - test meaningful medical knowledge
+    9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
+    10. ENSURE all abbreviations are spelled out at least once
+    11. REMOVE DUPLICATE CARDS - if multiple cards test the same concept, keep only the best one
 
-{hint_section}
+    Review these {len(cards_for_review)} cloze deletion flashcards and optimize them by:
 
-Review these {len(cards_for_review)} cloze deletion flashcards and optimize them by:
+    1. MAINTAINING good cloze patterns - don't make them more ambiguous
+    2. ENSURING each card remains self-contained and understandable
+    3. FIXING only genuinely ambiguous cloze deletions
+    4. ADDING context where needed rather than hiding information
+    5. MERGING only truly redundant cards
+    6. REMOVING duplicates that test the same concepts
+    7. REMOVING only:
+    - Cards about titles, objectives, or outlines themselves
+    - Cards with unfixable ambiguity
+    - Overly specialized technical details
+    - Specific research study names/authors (unless landmark)
+    - Exact dosing/technical parameters (unless critical safety info)
+    - Research methodology minutiae
+    - Historical trivia without clinical relevance
+    - Subspecialty procedural minutiae
+    - Future research priorities or ongoing trials
+    8. PRESERVING:
+    - Specific, focused cloze deletions
+    - Clear context around clozes
+    - Self-contained card structure
+    - Learning outcomes focus
+    9. EMPHASIZING:
+    - Clinical reasoning and decision-making
+    - Comparative effectiveness (why choose A over B)
+    - Practical applications in general practice
+    - Key safety considerations
+    - First-line approaches
+    - "Why" and "when" rather than exact numbers
+    - Clinical decision pathways
+    10. ADDING clinical pearls that help with real patient care
+    11. ENSURING medical accuracy while keeping appropriate depth
 
-1. MAINTAINING good cloze patterns - don't make them more ambiguous
-2. ENSURING each card remains self-contained and understandable
-3. FIXING only genuinely ambiguous cloze deletions
-4. ADDING context where needed rather than hiding information
-5. MERGING only truly redundant cards
-6. REMOVING duplicates that test the same concepts
-7. REMOVING only:
-   - Cards about titles, objectives, or outlines themselves
-   - Cards with unfixable ambiguity
-   - Overly specialized technical details
-   - Specific research study names/authors (unless landmark)
-   - Exact dosing/technical parameters (unless critical safety info)
-   - Research methodology minutiae
-   - Historical trivia without clinical relevance
-   - Subspecialty procedural minutiae
-   - Future research priorities or ongoing trials
-8. PRESERVING:
-   - Specific, focused cloze deletions
-   - Clear context around clozes
-   - Self-contained card structure
-   - Learning outcomes focus
-9. EMPHASIZING:
-   - Clinical reasoning and decision-making
-   - Comparative effectiveness (why choose A over B)
-   - Practical applications in general practice
-   - Key safety considerations
-   - First-line approaches
-   - "Why" and "when" rather than exact numbers
-   - Clinical decision pathways
-10. ADDING clinical pearls that help with real patient care
-11. ENSURING medical accuracy while keeping appropriate depth
-12. ADDING descriptive hints if requested (without giving away answers)
-13. Fine-tuning cloze grouping if requested (without forgetting to also add hints)
+    Current flashcards:
+    {json.dumps(cards_for_review, indent=2)}
 
-Current flashcards:
-{json.dumps(cards_for_review, indent=2)}
-
-Return a JSON object with TWO arrays:
-{{
-  "refined_cards": [
+    Return a JSON object with TWO arrays:
     {{
-      "slide": 1,
-      "text": "In hereditary breast cancer, {{{{c1::BRCA1}}}} mutations increase lifetime risk to {{{{c2::60-80%}}}}",
-      "facts": ["BRCA1", "60-80%"],
-      "context": "Key genetic risk factor for breast cancer screening decisions",
-      "clinical_relevance": "Indicates need for enhanced surveillance or prophylactic measures",
-      "original_indices": [0]
+    "refined_cards": [
+        {{
+        "slide": 1,
+        "text": "In hereditary breast cancer, {{{{c1::BRCA1}}}} mutations increase lifetime risk to {{{{c2::60-80%}}}}",
+        "facts": ["BRCA1", "60-80%"],
+        "context": "Key genetic risk factor for breast cancer screening decisions",
+        "clinical_relevance": "Indicates need for enhanced surveillance or prophylactic measures",
+        "original_indices": [0]
+        }}
+    ],
+    "decisions": [
+        {{
+        "action": "removed",
+        "original_index": 1,
+        "original_text": "This lecture focuses on the {{{{c1::treatment of hormone-receptor-positive breast cancer}}}}",
+        "reason": "Tests the lecture title/topic announcement rather than medical facts"
+        }},
+        {{
+        "action": "modified", 
+        "original_index": 3,
+        "original_text": "Treatment includes {{{{c1::chemotherapy}}}}",
+        "new_text": "First-line treatment for HER2+ breast cancer includes {{{{c1::trastuzumab}}}} with {{{{c2::chemotherapy}}}}",
+        "reason": "Added specific context (HER2+) to make card self-contained, split into two clozes"
+        }},
+        {{
+        "action": "merged",
+        "original_indices": [5, 8],
+        "original_texts": ["Card about CDK4/6 inhibitors", "Another card about CDK4/6 inhibitors"],
+        "reason": "Both cards tested the same concept about CDK4/6 inhibitors"
+        }}
+    ]
     }}
-  ],
-  "decisions": [
-    {{
-      "action": "removed",
-      "original_index": 1,
-      "original_text": "This lecture focuses on the {{{{c1::treatment of hormone-receptor-positive breast cancer}}}}",
-      "reason": "Tests the lecture title/topic announcement rather than medical facts"
-    }},
-    {{
-      "action": "modified", 
-      "original_index": 3,
-      "original_text": "Treatment includes {{{{c1::chemotherapy}}}}",
-      "new_text": "First-line treatment for HER2+ breast cancer includes {{{{c1::trastuzumab}}}} with {{{{c2::chemotherapy}}}}",
-      "reason": "Added specific context (HER2+) to make card self-contained, split into two clozes"
-    }},
-    {{
-      "action": "merged",
-      "original_indices": [5, 8],
-      "original_texts": ["Card about CDK4/6 inhibitors", "Another card about CDK4/6 inhibitors"],
-      "reason": "Both cards tested the same concept about CDK4/6 inhibitors"
-    }}
-  ]
-}}
 
-⚠️ REMEMBER: The goal is to REFINE cards while MAINTAINING their good cloze deletion patterns. Do not make cards more ambiguous in the name of brevity. Each card must be answerable without having seen the lecture."""
-    
+    ⚠️ REMEMBER: The goal is to REFINE cards while MAINTAINING their good cloze deletion patterns. Do not make cards more ambiguous in the name of brevity. Each card must be answerable without having seen the lecture."""
+
+    def _build_hints_only_prompt(self, lecture_name: str, cards: List[Dict]) -> str:
+        """Build prompt for adding hints only."""
+        return f"""You are adding descriptive hints to medical flashcards from "{lecture_name}".
+
+    TASK: Add hints to cloze deletions to reduce ambiguity without giving away answers.
+
+    {PromptTemplates.get_hint_instructions()}
+
+    CRITICAL RULES:
+    - DO NOT change the card text except for adding hints
+    - DO NOT change cloze numbers
+    - Only add hints where they reduce ambiguity
+    - Format: {{{{c1::answer::hint}}}}
+
+    Current cards WITHOUT hints:
+    {json.dumps(cards, indent=2)}
+
+    Return JSON:
+    {{
+    "cards_with_hints": [
+        {{
+        "slide": 1,
+        "text": "Card text with {{{{c1::answer::appropriate_hint}}}} added",
+        "facts": ["fact1"],
+        "context": "Context",
+        "clinical_relevance": "Clinical pearl"
+        }}
+    ]
+    }}"""
+
+    def _build_grouping_only_prompt(self, lecture_name: str, cards: List[Dict]) -> str:
+        """Build prompt for optimizing cloze grouping only."""
+
+        return f"""You are optimizing cloze number grouping for medical flashcards from "{lecture_name}".
+
+    TASK: Optimize cloze number assignments to create the fewest cards while maintaining clarity.
+
+    {PromptTemplates.get_fine_tuned_cloze_principles()}
+
+    CRITICAL RULES:
+    - DO NOT change card text or remove hints
+    - ONLY adjust cloze numbers (c1, c2, c3, etc.)
+
+    Current cards WITH hints:
+    {json.dumps(cards, indent=2)}
+
+    Return JSON:
+    {{
+    "optimized_cards": [
+        {{
+        "slide": 1,
+        "text": "Card with optimized {{{{c1::answer::hint}}}} numbers",
+        "facts": ["fact1"],
+        "context": "Context",
+        "clinical_relevance": "Clinical pearl"
+        }}
+    ]
+    }}"""
     def _save_refinement_logs(self, refinement_log_file: Path, lecture_name: str, 
                             total_original_cards: int, refined_cards: List[Dict], 
                             decisions: List[Dict]):
