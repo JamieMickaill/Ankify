@@ -796,75 +796,7 @@ Return a JSON array with one object per slide:
 IMPORTANT: Include ALL slides in your response, even if a slide has no relevant medical content (return empty cards array for that slide).
 Make cards self-contained with clear, unambiguous cloze deletions that can be answered without lecture context."""
     
-    # def analyze_slide_with_ai(self, image: Image.Image, page_num: int, lecture_name: str, max_retries: int = 5) -> Dict:
-    #     """Send slide image to OpenAI API for analysis with retry logic."""
-    #     # Test mode check
-    #     if self.test_mode:
-    #         print(f"\n🔍 Ready to analyze slide {page_num}")
-    #         print("Press Enter to continue (or 'skip' to skip this slide, 'quit' to exit)...")
-    #         user_input = input().strip().lower()
-    #         if user_input == 'skip':
-    #             print("⏭️ Skipping this slide")
-    #             return {"page_num": page_num, "cards": []}
-    #         elif user_input == 'quit':
-    #             print("👋 Exiting test mode")
-    #             sys.exit(0)
-        
-    #     base64_image = self.image_to_base64(image, for_api=True)  # <-- Changed
-    #     prompt = self._build_analysis_prompt(page_num, lecture_name)
-        
-    #     payload = {
-    #         "model": "o3",
-    #         "messages": [
-    #             {
-    #                 "role": "user",
-    #                 "content": [
-    #                     {"type": "text", "text": prompt},
-    #                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-    #                 ]
-    #             }
-    #         ],
-    #         "max_completion_tokens": 100000
-    #     }
-        
-    #     for attempt in range(max_retries):
-    #         try:
-    #             if attempt > 0:
-    #                 wait_time = (2 ** attempt) + random.uniform(0, 1)
-    #                 print(f"\n  ⏳ Retry {attempt}/{max_retries} after {wait_time:.1f}s wait...", end='', flush=True)
-    #                 time.sleep(wait_time)
-                
-    #             response = self.session.post(
-    #                 "https://api.openai.com/v1/chat/completions",
-    #                 headers=self.headers,
-    #                 json=payload,
-    #                 timeout=600
-    #             )
-                
-    #             if response.status_code == 200:
-    #                 content = response.json()['choices'][0]['message']['content']
-    #                 json_match = re.search(r'\[[\s\S]*\]', content)
-    #                 if json_match:
-    #                     cards_data = json.loads(json_match.group())
-    #                     if self.single_card_mode:
-    #                         for card in cards_data:
-    #                             card['text'] = self.convert_to_single_card_format(card['text'])
-    #                     for card in cards_data:
-    #                         card['text'] = self.add_bold_formatting(card['text'])
-    #                     return {"page_num": page_num, "cards": cards_data}
-    #             elif response.status_code == 429:
-    #                 wait_time = int(response.headers.get('Retry-After', 60))
-    #                 print(f"\n  ⚠️ Rate limited. Waiting {wait_time}s...", end='', flush=True)
-    #                 time.sleep(wait_time)
-    #             else:
-    #                 print(f"\n  ❌ API Error: {response.status_code} - {response.text[:100]}...", end='', flush=True)
-                    
-    #         except Exception as e:
-    #             print(f"\n  ❗ Error (attempt {attempt + 1}/{max_retries}): {str(e)[:50]}...", end='', flush=True)
-        
-    #     print(f"\n  ❌ Failed after {max_retries} attempts", end='', flush=True)
-    #     return {"page_num": page_num, "cards": []}
-    
+
     def analyze_slides_batch(self, images: List[Tuple[Image.Image, int]], lecture_name: str, max_retries: int = 3) -> List[Dict]:
         """Send multiple slides to OpenAI API in a single batch request."""
         print(f"\n🔄 Batch processing {len(images)} slides in a single API call...")
@@ -899,9 +831,10 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         content = [{"type": "text", "text": prompt}] + slides_content
         
         payload = {
-            "model": "o3",
+            "model": "gpt-5",
             "messages": [{"role": "user", "content": content}],
-            "max_completion_tokens": 100000
+            "max_completion_tokens": 100000,
+            "reasoning_effort": "high",
         }
         
         self.logger.info(f"Sending batch request with {len(content)} content items")
@@ -1037,9 +970,10 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         prompt = self._build_critique_prompt(lecture_name, cards_for_review)
         
         payload = {
-            "model": "o3",
+            "model": "gpt-5",
             "messages": [{"role": "user", "content": prompt}],
-            "max_completion_tokens": 100000
+            "max_completion_tokens": 100000,
+            "reasoning_effort": "high",
         }
         max_retries = 3
         for attempt in range(max_retries):
@@ -1092,7 +1026,7 @@ Make cards self-contained with clear, unambiguous cloze deletions that can be an
         
         if self.add_hints:
             hint_section = f"""
-ADDITIONALLY, ADD CLOZE HINTS:
+ADDITIONALLY, YOU MUST ADD CLOZE HINTS:
 {PromptTemplates.get_hint_instructions()}
 
 When refining cards, add appropriate hints to help students without giving away the answer."""
@@ -1133,6 +1067,7 @@ REFINEMENT RULES:
 9. Avoid testing exact percentages unless clinically critical - prefer testing the subject (gene/condition name) or using descriptors like "common/rare/most common"
 10. ENSURE all abbreviations are spelled out at least once
 11. REMOVE DUPLICATE CARDS - if multiple cards test the same concept, keep only the best one
+12. IF INSTRUCTED TO BOTH ADD HINTS AND REFINE CLOZE GROUPING, ENSURE THAT BOTH TASKS ARE COMPLETED
 
 {hint_section}
 
@@ -1170,6 +1105,7 @@ Review these {len(cards_for_review)} cloze deletion flashcards and optimize them
 10. ADDING clinical pearls that help with real patient care
 11. ENSURING medical accuracy while keeping appropriate depth
 12. ADDING descriptive hints if requested (without giving away answers)
+13. Fine-tuning cloze grouping if requested (without forgetting to also add hints)
 
 Current flashcards:
 {json.dumps(cards_for_review, indent=2)}
