@@ -333,6 +333,9 @@ GROUPING GUIDELINES:
    - Normal vs abnormal values
    - Factor levels vs severity grades
    - Variant types vs prognosis
+   - Drug/medication vs indication (ALWAYS separate)
+   - Location/anatomical site vs pathology/tumor type (ALWAYS separate)
+   - Disease/diagnosis/pathogen vs symptoms/signs/tissue/location (ALWAYS separate)
 
 3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
 
@@ -377,6 +380,24 @@ GROUPING GUIDELINES:
 ❌ BAD: "CD5{{c1::+}} and CD23{{c2::+}} in CLL"
 → Co-expressed markers should be grouped
 
+❌ BAD: "{{c1::Quetiapine::drug/medication}} is effective for both {{c1::acute mania::indication}} and {{c1::bipolar depression::indication}}, and can be used for {{c1::maintenance::indication}}"
+→ Drug and indication must ALWAYS be separate cloze numbers
+
+❌ BAD: "{{c1::Lamotrigine::drug/medication}} is useful for {{c1::bipolar depression::indication}} and {{c1::maintenance::indication}}, but is {{c1::not effective}} for {{c1::acute mania::indication}}"
+→ Drug, indications, and efficacy status should be separate
+
+❌ BAD: "{{c1::Lithium::drug/medication}} treats {{c1::acute mania::indication}} and is effective for {{c1::maintenance::indication}} in bipolar disorder"
+→ Drug name and indications must be separate
+
+❌ BAD: "The {{c1::limbus::location}} is the most common site for {{c1::ocular surface neoplasia::tumor type}}"
+→ Anatomical location and pathology must ALWAYS be separate
+
+❌ BAD: "Reduced corneal innervation can lead to {{c1::dry eye (reduced tear secretion)::clinical feature}}, {{c1::epithelial ulceration::clinical feature}}, and {{c1::scarring::sequela}}—features of {{c1::neurotrophic keratopathy::diagnosis}}"
+→ Diagnosis/disease name must be separate from its symptoms/signs
+
+❌ BAD: "{{c1::Herpes simplex virus::pathogen}} remains latent in the {{c1::trigeminal ganglion::site of latency}} and can reactivate and travel along nerves to infect the {{c1::cornea::target tissue}}, leading to {{c1::herpetic keratitis::disease}} and scarring"
+→ Pathogen, anatomical sites, and resulting disease must all be separate
+
 5. DECISION FRAMEWORK:
    - Can the blanks be logically filled when hidden together? → Use same cloze
    - Would hiding them together make the card unanswerable? → Use different cloze
@@ -384,18 +405,20 @@ GROUPING GUIDELINES:
    - Do they represent cause and effect? → Use different cloze
    - Are they binary/mutually exclusive choices? → Use same cloze
    - Are they components of same translocation/co-expression? → Use same cloze
+   - Is one a drug/medication and the other an indication? → ALWAYS use different cloze
+   - Is one a location and the other a pathology? → ALWAYS use different cloze
+   - Is one a disease/pathogen and the other symptoms/location? → ALWAYS use different cloze
 
 6. ERR ON THE SIDE OF GROUPING:
-   When uncertain, prefer fewer cloze numbers. It's easier to manually create additional cards later than to merge multiple cards.
+   When uncertain (except for the mandatory separations above), prefer fewer cloze numbers. It's easier to manually create additional cards later than to merge multiple cards.
 
-REMEMBER: The goal is intelligent grouping that creates fewer cards while maintaining the ability to answer each card without excessive ambiguity."""
-
+REMEMBER: The goal is intelligent grouping that creates fewer cards while maintaining the ability to answer each card without excessive ambiguity. However, certain relationships (drug-indication, location-pathology, disease-symptoms) must ALWAYS be kept separate to maintain clinical learning effectiveness."""
 
     @staticmethod
     def get_json_format() -> str:
         """Get the expected JSON format for responses."""
         return """
-        
+
 Format your response as a JSON array of flashcard objects, where each object has:
 - "text": The complete text with cloze deletions in {{c1::answer}} format (can have multiple clozes {{c1::}}, {{c2::}}, etc.)
 - "facts": Array of the key facts being tested
@@ -490,13 +513,15 @@ class MedicalAnkiGenerator:
                 custom_tags: Optional[List[str]] = None, card_style: Optional[Dict] = None,
                 compression_level: str = "high",  # Changed default to "high"
                 test_mode: bool = False, 
-                add_hints: bool = True):  # Changed default to True, removed batch_mode and preserve_quality
+                add_hints: bool = True, # Changed default to True, removed batch_mode and preserve_quality
+                flex_mode: bool = False):  
         self.api_key = openai_api_key
         self.single_card_mode = single_card_mode
         self.custom_tags = custom_tags or []
         self.card_style = card_style or {}
         self.compression_level = compression_level
         self.test_mode = test_mode
+        self.flex_mode = flex_mode
         self.add_hints = add_hints
         self.headers = {
             "Content-Type": "application/json",
@@ -821,16 +846,26 @@ class MedicalAnkiGenerator:
         
         prompt = self._build_batch_analysis_prompt(len(images), lecture_name)
         content = [{"type": "text", "text": prompt}] + slides_content
-        
+        service_tier = "flex" if self.flex_mode else "auto"
+
         payload = {
             "model": "gpt-5",
             "messages": [{"role": "user", "content": content}],
             "max_completion_tokens": 100000,
             "reasoning_effort": "high",
+            "service_tier": f"{service_tier}",
         }
         
         self.logger.info(f"Sending batch request with {len(content)} content items")
+
         
+        
+        # Dynamic timeout based on number of slides (20 seconds per slide + 300 second buffer)
+        timeout_seconds = max(600, (len(images) * 20) + 300)
+        if self.flex_mode: timeout_seconds*=2
+
+        print(f"⏱️ Timeout set to {timeout_seconds} seconds ({timeout_seconds/60:.1f} minutes) for {len(images)} slides")
+
         for attempt in range(max_retries):
             try:
                 if attempt > 0:
@@ -843,7 +878,7 @@ class MedicalAnkiGenerator:
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=600
+                    timeout=timeout_seconds
                 )
                 
                 if response.status_code == 200:
@@ -960,12 +995,15 @@ class MedicalAnkiGenerator:
         # Stage 1: Refinement only
         print("\n📝 Stage 1/3: Initial refinement and quality improvement...")
         prompt = self._build_critique_prompt_refinement_only(lecture_name, cards_for_review)
+
+        service_tier = "flex" if self.flex_mode else "auto"
         
         payload = {
             "model": "gpt-5",
             "messages": [{"role": "user", "content": prompt}],
             "max_completion_tokens": 100000,
             "reasoning_effort": "high",
+            "service_tier": f"{service_tier}",
         }
         
         max_retries = 3
@@ -1026,6 +1064,7 @@ class MedicalAnkiGenerator:
                 "messages": [{"role": "user", "content": prompt}],
                 "max_completion_tokens": 100000,
                 "reasoning_effort": "high",
+                "service_tier": f"{service_tier}",
             }
             
             for attempt in range(max_retries):
@@ -1070,6 +1109,7 @@ class MedicalAnkiGenerator:
                 "messages": [{"role": "user", "content": prompt}],
                 "max_completion_tokens": 100000,
                 "reasoning_effort": "high",
+                "service_tier": f"{service_tier}",
             }
             
             for attempt in range(max_retries):
@@ -1636,10 +1676,11 @@ class MedicalAnkiGenerator:
             print(f"{'='*60}")
             
             try:
-                self.process_lecture(str(pdf_file), output_dir, resume=resume, budget_mode=budget_mode)
+                x = self.process_lecture(str(pdf_file), output_dir, resume=resume, budget_mode=budget_mode)
                 successful += 1
                 
-                completed_files.add(str(pdf_file))
+                if x: 
+                    completed_files.add(str(pdf_file))
                 folder_progress = {
                     'completed_files': list(completed_files),
                     'total_files': len(pdf_files),
@@ -1743,6 +1784,7 @@ def main():
     budget_mode = "--budget" in sys.argv
     test_mode = "--test-mode" in sys.argv
     add_hints = "--no-hints" not in sys.argv  # Inverted logic
+    flex_mode = "--flex-processing" in sys.argv #OpenAI flex mode pricing
     
     # Parse compression level
     compression_level = "high"  # Default
@@ -1782,7 +1824,8 @@ def main():
         card_style=card_style,
         compression_level=compression_level,
         test_mode=test_mode,
-        add_hints=add_hints
+        add_hints=add_hints,
+        flex_mode=flex_mode,
     )
     
     if os.path.isfile(path) and path.endswith('.pdf'):
