@@ -314,7 +314,7 @@ CORE PRINCIPLE: Group related concepts together with the same cloze number. When
 GROUPING GUIDELINES:
 
 1. ALWAYS GROUP TOGETHER (same cloze number):
-   - Multiple symptoms/signs of the same condition
+   - Multiple symptoms/signs of the same condition/disease
    - Multiple examples of the same category
    - Related anatomical structures in a list
    - Multiple drugs with the same indication
@@ -333,9 +333,9 @@ GROUPING GUIDELINES:
    - Normal vs abnormal values
    - Factor levels vs severity grades
    - Variant types vs prognosis
-   - Drug/medication vs indication (ALWAYS separate)
-   - Location/anatomical site vs pathology/tumor type (ALWAYS separate)
-   - Disease/diagnosis/pathogen vs symptoms/signs/tissue/location (ALWAYS separate)
+   - Drug vs related indication 
+   - Location vs pathology type 
+   - Disease vs symptoms/signs/tissue/location 
 
 3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
 
@@ -363,6 +363,9 @@ GROUPING GUIDELINES:
 ✅ GOOD: "Factor levels {{c1::<1%}} indicate {{c2::severe}} haemophilia, {{c1::1-5%}} indicate {{c2::moderate}}, {{c1::5-40%}} indicate {{c2::mild}}"
 → Groups factor levels together, groups severities together
 
+✅ GOOD: Risk factors for eating disorders include {{c1::female or trans male gender}}, {{c1::puberty/adolescence}}, {{c1::perfectionism or autism spectrum traits}}, participation in {{c1::weight‑ or aesthetics‑focused sports (ballet, gymnastics, figure skating)}}, {{c1::trauma or major life events}}, {{c1::family history of eating disorders}}, and a {{c1::highly competitive environment}}.
+→ Groups risk factors together
+
 4. EXAMPLES TO AVOID:
 
 ❌ BAD: "The antibody screen looks for {{c1::unexpected antibodies}} using {{c1::IAT}}"
@@ -373,6 +376,24 @@ GROUPING GUIDELINES:
 
 ❌ BAD: "Chromosome {{c1::8}} and {{c2::14}} in Burkitt lymphoma"
 → Should group chromosomes in same translocation
+
+❌ BAD: Psychedelics/related agents—{{c1::ketamine::drug/medication}}, {{c2::MDMA::drug/medication}}, {{c3::psilocybin::drug/medication}}, and {{c4::cannabidiol::drug/medication}}—are {{c5::experimental::evidence status}} for eating disorders and should be considered only {{c6::within clinical trials::use setting}} due to {{c7::safety and legal considerations}}.
+→ Drug names for the same indication must be grouped together
+
+❌ BAD: Medical complications of {{c1::anorexia nervosa}} include {{c2::bradycardia and hypotension::clinical feature}}, {{c3::arrhythmias::clinical feature}}, {{c4::amenorrhoea/infertility::clinical feature}}, {{c5::osteopenia/osteoporosis::clinical feature}}, {{c6::anaemia/leukopenia::clinical feature}}, {{c7::renal impairment/dehydration::clinical feature}}, and {{c8::constipation::clinical feature}}.
+→ Symptoms for the same disease must be grouped together
+
+❌ BAD: In {{c1::bulimia nervosa}}, purging can cause {{c2::dental enamel erosion::complication}}, {{c3::parotid enlargement::complication}}, {{c4::hypokalaemic metabolic alkalosis::complication}}, {{c5::oesophagitis/Mallory–Weiss tears::complication}}, and {{c6::renal complications::complication}}.
+→ Complications for the same disease must be grouped together
+
+❌ BAD: {{c1::Binge‑eating disorder}} is strongly associated with {{c2::obesity}}, {{c3::metabolic syndrome}}, and {{c4::type 2 diabetes mellitus}}.
+→ Associations for the same disease must be grouped together
+
+❌ BAD: Physical harm minimisation in eating disorders includes routine monitoring of {{c1::vital signs and blood glucose::vitals/lab}}, {{c2::electrolytes (especially phosphate, potassium, magnesium)::investigation}}, {{c3::ECG::investigation}}, {{c4::bowel function::clinical monitoring}}, and {{c5::bone and dental health::screening}}.
+→ Harm minimisation strategies for the same disease must be grouped together
+
+❌ BAD: Refeeding syndrome is marked by {{c1::hypophosphataemia::biochemical hallmark}} with risk of {{c2::arrhythmias::severe}} and {{c3::heart failure::severe}}; prevent by {{c4::slow refeeding::management}}, {{c5::close electrolyte monitoring/repletion::management}} and {{c6::thiamine supplementation::management}}.
+→ Risks should be grouped together (arrythmia/heart failure) and prevention strategies should be grouped together (slow refeed, electrolyte monitoring)
 
 ❌ BAD: "Subcutaneous heparin for {{c1::prophylaxis}}, IV for {{c2::treatment}}"
 → Binary choice makes other obvious - use same cloze
@@ -397,6 +418,9 @@ GROUPING GUIDELINES:
 
 ❌ BAD: "{{c1::Herpes simplex virus::pathogen}} remains latent in the {{c1::trigeminal ganglion::site of latency}} and can reactivate and travel along nerves to infect the {{c1::cornea::target tissue}}, leading to {{c1::herpetic keratitis::disease}} and scarring"
 → Pathogen, anatomical sites, and resulting disease must all be separate
+
+❌ BAD: Life events involving {{c1::loss}} or {{c1::humiliation/threat}} show a strong association with the {{c3::onset}} of major depression.
+→ Grouping criteria is good, but cloze does not have c2, while c3 is included
 
 5. DECISION FRAMEWORK:
    - Can the blanks be logically filled when hidden together? → Use same cloze
@@ -991,7 +1015,8 @@ class MedicalAnkiGenerator:
         
         print(f"📊 Analyzing {total_original_cards} cards for optimization...")
         self.logger.info(f"Total cards to analyze: {total_original_cards}")
-        
+
+
         # Stage 1: Refinement only
         print("\n📝 Stage 1/3: Initial refinement and quality improvement...")
         prompt = self._build_critique_prompt_refinement_only(lecture_name, cards_for_review)
@@ -1021,7 +1046,7 @@ class MedicalAnkiGenerator:
                     "https://api.openai.com/v1/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=600
+                    timeout=1200
                 )
                 
                 if response.status_code == 200:
@@ -1078,7 +1103,7 @@ class MedicalAnkiGenerator:
                         "https://api.openai.com/v1/chat/completions",
                         headers=self.headers,
                         json=payload,
-                        timeout=600
+                        timeout=1200
                     )
                     
                     if response.status_code == 200:
@@ -1123,7 +1148,7 @@ class MedicalAnkiGenerator:
                         "https://api.openai.com/v1/chat/completions",
                         headers=self.headers,
                         json=payload,
-                        timeout=600
+                        timeout=1200
                     )
                     
                     if response.status_code == 200:
