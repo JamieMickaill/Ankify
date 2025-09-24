@@ -39,6 +39,11 @@ CRITICAL RULES FOR CARD CREATION:
 2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
 3. Focus on learning outcomes and objectives if shown on the slide
 4. DO NOT create cards about the title, learning objectives, or outline themselves
+5. NEVER create cloze deletions where the answer is given elsewhere in the card (e.g., in parentheses, as an abbreviation expansion)
+6. When abbreviations are important, test the abbreviation OR the full name, not both
+7. Always include disease/condition context when listing causes, symptoms, or treatments
+8. Check for formatting errors in cloze syntax (no spaces between colons)
+9. Don't test irrelevant details from other conditions mentioned in passing
 
 WHAT NOT TO TEST:
 ❌ "This lecture focuses on {{c1::treatment of hormone-receptor-positive breast cancer}}" (just restates title)
@@ -190,6 +195,26 @@ ADDITIONAL EXAMPLES TO AVOID:
 → Problem: Not a testable medical concept
 ✅ SKIP THIS CONTENT - not assessable
 
+❌ BAD: "Psychotic disorders have a prevalence of {{c1::a few percent}} (≈3–5%)"
+→ Problem: Answer given in parentheses defeats the learning purpose
+✅ BETTER: "Psychotic disorders have a lifetime prevalence of {{c1::3-5%}} of the population"
+
+❌ BAD: "On computed tomography ({{c1::CT}})/magnetic resonance imaging ({{c1::MRI}}), a subdural..."
+→ Problem: Full names given before abbreviations defeats the cloze
+✅ BETTER: "On {{c1::CT}} or {{c1::MRI}}, a subdural haematoma is {{c2::crescent-shaped}}"
+
+❌ BAD: "In patients >60 years, common causes include {{c1::atrial fibrillation}}"
+→ Problem: Missing context - what disease are these causes of?
+✅ BETTER: "In patients >60 years, common causes of {{c2::stroke}} include {{c1::atrial fibrillation}}"
+
+❌ BAD: "The {{c1::Fisher}} grade correlates with risk of {{c2::cerebral vasospasm}}"
+→ Problem: Missing SAH context makes card ambiguous
+✅ BETTER: "In {{c3::subarachnoid haemorrhage}}, the {{c1::Fisher}} grade predicts {{c2::vasospasm}} risk"
+
+❌ BAD: "For {{c1::minor stroke}}, start {{c2::aspirin}} plus {{c2: :clopidogrel}}"
+→ Problem: Formatting error with space between colons
+✅ BETTER: "For {{c1::minor stroke}}, start {{c2::aspirin}} plus {{c2::clopidogrel}}"
+
 
 CRITICAL CARD EVALUATION QUESTIONS:
 Before finalizing any card, ask:
@@ -227,12 +252,28 @@ ADVANCED CLOZE PRINCIPLES:
 ✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
 → Tests drug class, example, mechanism, and effect
 
+CONTEXT PRESERVATION RULES:
+- When testing causes/symptoms/treatments, ALWAYS specify what condition they relate to
+- Bad: "Common causes include {{c1::atrial fibrillation}}"
+- Good: "Common causes of stroke include {{c1::atrial fibrillation}}"
+- When testing grading systems or scores, include what condition they assess
+- Bad: "The {{c1::Fisher}} grade predicts vasospasm"
+- Good: "In SAH, the {{c1::Fisher}} grade predicts {{c2::vasospasm}}"
+
+ANSWER LEAKAGE PREVENTION:
+- Never include the answer in parentheses after a cloze
+- Never spell out abbreviations before testing them
+- Remove redundant information that gives away cloze answers
+- If showing ranges or examples, incorporate them INTO the cloze or remove them
+
 CRITICAL REMINDERS:
 - Test ALL important facts in a statement, not just one
 - Ensure abbreviations are spelled out at least once
 - Provide sufficient context for self-contained understanding
 - Focus on clinically relevant information, not research priorities
-- Avoid cards where remaining context reveals the cloze deletion"""
+- Avoid cards where remaining context reveals the cloze deletion
+
+"""
     
     @staticmethod
     def get_percentage_guidelines() -> str:
@@ -327,15 +368,21 @@ GROUPING GUIDELINES:
 2. SEPARATE INTO DIFFERENT CLOZE NUMBERS:
    - Test name vs test result
    - Drug name vs mechanism of action
-   - Disease vs treatment
+   - Drug name vs related indication 
+   - Drug name vs its antidote/reversal agent
+   - Disease name vs symptoms/signs/tissue/location 
+   - Disease name vs treatment
+   - Pathology/disease vs its mechanism
+   - Anatomical location vs pathology type 
+   - Anatomical structure/vessel vs resulting syndrome
    - Cause vs effect
    - Structure vs function
    - Normal vs abnormal values
    - Factor levels vs severity grades
    - Variant types vs prognosis
-   - Drug vs related indication 
-   - Location vs pathology type 
-   - Disease vs symptoms/signs/tissue/location 
+   - Management action vs its complication/outcome
+   - Target value vs drug used to achieve it
+   - Grading system name vs what it predicts
 
 3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
 
@@ -421,6 +468,21 @@ GROUPING GUIDELINES:
 
 ❌ BAD: Life events involving {{c1::loss}} or {{c1::humiliation/threat}} show a strong association with the {{c3::onset}} of major depression.
 → Grouping criteria is good, but cloze does not have c2, while c3 is included
+
+❌ BAD: "A {{c1::posterior inferior cerebellar artery (PICA)}} infarct causes {{c1::lateral medullary (Wallenberg) syndrome}}"
+→ Vessel and syndrome must be separate - too ambiguous when both hidden
+
+❌ BAD: "{{c1::Choroid plexus tumours}} can cause hydrocephalus by {{c1::overproduction of CSF}}"
+→ Tumor type and mechanism must be separate
+
+❌ BAD: "Reverse {{c1::warfarin}} with {{c1::prothrombin complex concentrate}} plus {{c1::vitamin K}}"
+→ Drug and its antidotes must be separate cloze numbers
+
+❌ BAD: "Secondary prevention aims for {{c1::LDL <1.8 mmol/L}} using {{c1::high-intensity statins}}"
+→ Target value and treatment must be separate
+
+❌ BAD: "The {{c1::Fisher}} grade is a {{c1::CT-based}} score that correlates with risk of {{c2::cerebral vasospasm}}"
+→ Grade name and imaging modality should be separate, plus missing SAH context
 
 5. DECISION FRAMEWORK:
    - Can the blanks be logically filled when hidden together? → Use same cloze
@@ -870,7 +932,7 @@ class MedicalAnkiGenerator:
         
         prompt = self._build_batch_analysis_prompt(len(images), lecture_name)
         content = [{"type": "text", "text": prompt}] + slides_content
-        service_tier = "flex" if self.flex_mode else "auto"
+        service_tier = "flex" if self.flex_mode else "default"
 
         payload = {
             "model": "gpt-5",
@@ -884,8 +946,8 @@ class MedicalAnkiGenerator:
 
         
         
-        # Dynamic timeout based on number of slides (20 seconds per slide + 300 second buffer)
-        timeout_seconds = max(600, (len(images) * 20) + 300)
+        # Dynamic timeout based on number of slides (30 seconds per slide + 300 second buffer)
+        timeout_seconds = max(600, (len(images) * 30) + 300)
         if self.flex_mode: timeout_seconds*=2
 
         print(f"⏱️ Timeout set to {timeout_seconds} seconds ({timeout_seconds/60:.1f} minutes) for {len(images)} slides")
@@ -1021,7 +1083,7 @@ class MedicalAnkiGenerator:
         print("\n📝 Stage 1/3: Initial refinement and quality improvement...")
         prompt = self._build_critique_prompt_refinement_only(lecture_name, cards_for_review)
 
-        service_tier = "flex" if self.flex_mode else "auto"
+        service_tier = "flex" if self.flex_mode else "default"
         
         payload = {
             "model": "gpt-5",
