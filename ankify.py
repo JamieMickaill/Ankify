@@ -883,8 +883,10 @@ class MedicalAnkiGenerator:
         """Build the batch analysis prompt using centralized templates."""
         cloze_instruction = PromptTemplates.get_cloze_instruction(self.single_card_mode)
         
-        return f"""You are analyzing {num_slides} slides from a medical lecture on "{lecture_name}" for MEDICAL STUDENTS.
+        return f"""You are analyzing {num_slides} slides from a medical lecture on "{lecture_name}" to create Anki flashcards specifically for MEDICAL STUDENTS preparing for exams and clinical practice.
         
+    Your PRIMARY GOAL: Create high-quality, unambiguous Anki flashcards that help medical students retain essential knowledge for both exams and patient care.
+
 {PromptTemplates.get_common_rules()}
 
 {PromptTemplates.get_cloze_examples()}
@@ -1078,9 +1080,13 @@ class MedicalAnkiGenerator:
         print(f"📊 Analyzing {total_original_cards} cards for optimization...")
         self.logger.info(f"Total cards to analyze: {total_original_cards}")
 
+        all_decisions = []
+        hint_decisions = []
+        grouping_decisions = []
+        ambiguity_decisions = []
 
         # Stage 1: Refinement only
-        print("\n📝 Stage 1/3: Initial refinement and quality improvement...")
+        print("\n📝 Stage 1/4: Initial refinement and quality improvement...")
         prompt = self._build_critique_prompt_refinement_only(lecture_name, cards_for_review)
 
         service_tier = "flex" if self.flex_mode else "default"
@@ -1117,8 +1123,10 @@ class MedicalAnkiGenerator:
                     if json_match:
                         result = json.loads(json_match.group())
                         refined_cards = result.get('refined_cards', [])
-                        decisions = result.get('decisions', [])
-                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, refined_cards, decisions)
+                        stage1_decisions = result.get('decisions', [])
+                        for decision in stage1_decisions:
+                            decision['stage'] = 'refinement'
+                        all_decisions.extend(stage1_decisions)
                         break
             except requests.exceptions.Timeout:
                 print(f"\n⏱️ Request timeout (attempt {attempt + 1}/{max_retries})")
@@ -1137,13 +1145,14 @@ class MedicalAnkiGenerator:
         
         if not refined_cards:
             print("⚠️ Stage 1 failed, using original cards")
+            self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, refined_cards, all_decisions,hint_decisions,grouping_decisions,ambiguity_decisions)
             return all_cards_data
         
         print(f"✅ Stage 1 complete: {total_original_cards} → {len(refined_cards)} cards")
         
         # Stage 2: Add hints (if enabled)
         if self.add_hints and refined_cards:
-            print("\n💡 Stage 2/3: Adding descriptive hints...")
+            print("\n💡 Stage 2/4: Adding descriptive hints...")
             prompt = self._build_hints_only_prompt(lecture_name, refined_cards)
             
             payload = {
@@ -1174,8 +1183,12 @@ class MedicalAnkiGenerator:
                         if json_match:
                             result = json.loads(json_match.group())
                             cards_with_hints = result.get('cards_with_hints', [])
+                            hint_decisions = result.get('hint_decisions', [])
                             if cards_with_hints:
                                 refined_cards = cards_with_hints
+                                for decision in hint_decisions:
+                                    decision['stage'] = 'hints'
+                                all_decisions.extend(hint_decisions)
                                 print(f"✅ Stage 2 complete: Hints added to {len(refined_cards)} cards")
                             break
                             
@@ -1183,12 +1196,14 @@ class MedicalAnkiGenerator:
                     print(f"\n❗ Error during hint addition: {str(e)}")
                     if attempt == max_retries - 1:
                         print("⚠️ Continuing without hints")
+                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, refined_cards, all_decisions,hint_decisions,grouping_decisions,ambiguity_decisions)
+
         else:
-            print("\n⏭️ Stage 2/3: Skipping hints (disabled)")
+            print("\n⏭️ Stage 2/4: Skipping hints (disabled)")
         
         # Stage 3: Optimize grouping (if not in single card mode)
         if not self.single_card_mode and refined_cards:
-            print("\n🔄 Stage 3/3: Optimizing cloze grouping...")
+            print("\n🔄 Stage 3/4: Optimizing cloze grouping...")
             prompt = self._build_grouping_only_prompt(lecture_name, refined_cards)
             
             payload = {
@@ -1219,8 +1234,13 @@ class MedicalAnkiGenerator:
                         if json_match:
                             result = json.loads(json_match.group())
                             optimized_cards = result.get('optimized_cards', [])
+                            grouping_decisions = result.get('grouping_decisions', [])
+                        
                             if optimized_cards:
                                 refined_cards = optimized_cards
+                                for decision in grouping_decisions:
+                                    decision['stage'] = 'grouping'
+                                all_decisions.extend(grouping_decisions)
                                 print(f"✅ Stage 3 complete: Grouping optimized for {len(refined_cards)} cards")
                             break
                             
@@ -1228,12 +1248,78 @@ class MedicalAnkiGenerator:
                     print(f"\n❗ Error during grouping optimization: {str(e)}")
                     if attempt == max_retries - 1:
                         print("⚠️ Using cards without grouping optimization")
+                        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, refined_cards, all_decisions,hint_decisions,grouping_decisions,ambiguity_decisions)
         else:
-            print("\n⏭️ Stage 3/3: Skipping grouping (single card mode)")
+            print("\n⏭️ Stage 3/4: Skipping grouping (single card mode)")
         
+
+        # Stage 4: Final check
+        if refined_cards:
+            print("\n🔍 Stage 4/4: Final ambiguity check...")
+            prompt = self._build_ambiguity_check_prompt(lecture_name, refined_cards)
+            
+            payload = {
+                "model": "gpt-5",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_completion_tokens": 100000,
+                "reasoning_effort": "high",
+                "service_tier": f"{service_tier}",
+            }
+            
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        wait_time = 30 * attempt
+                        print(f"\n⏳ Retry {attempt}/{max_retries} after {wait_time}s wait...")
+                        time.sleep(wait_time)
+                    
+                    response = self.session.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers=self.headers,
+                        json=payload,
+                        timeout=1200
+                    )
+                    
+                    if response.status_code == 200:
+                        content = response.json()['choices'][0]['message']['content']
+                        json_match = re.search(r'\{[\s\S]*\}', content)
+                        if json_match:
+                            result = json.loads(json_match.group())
+                            checked_cards = result.get('checked_cards', [])
+                            ambiguity_decisions = result.get('ambiguity_decisions', [])
+                
+                            if checked_cards:
+                                refined_cards = checked_cards
+                                # Add ambiguity decisions to the decisions log
+                                for decision in ambiguity_decisions:
+                                    if decision.get('action') == 'modified':
+                                        decisions.append({
+                                            'action': 'modified',
+                                            'stage': 'ambiguity_check',
+                                            'original_text': decision.get('original_text'),
+                                            'new_text': decision.get('new_text'),
+                                            'reason': decision.get('reason')
+                                        })
+                                print(f"✅ Stage 4 complete: {len([d for d in ambiguity_decisions if d.get('action') == 'modified'])} cards modified for clarity")
+                            break
+                            
+                except Exception as e:
+                    print(f"\n❗ Error during ambiguity check: {str(e)}")
+                    if attempt == max_retries - 1:
+                        print("⚠️ Continuing without ambiguity check")
+        else:
+            print("\n⏭️ Stage 4/4: Skipping ambiguity check (no cards)")
         # Save and process refinement results
-        self._save_refinement_logs(refinement_log_file, lecture_name, total_original_cards, 
-                                refined_cards, decisions)
+        self._save_refinement_logs(
+        refinement_log_file, 
+        lecture_name, 
+        total_original_cards, 
+        refined_cards, 
+        all_decisions,
+        hint_decisions,
+        grouping_decisions,
+        ambiguity_decisions
+    )
         
         # Validate and organize refined cards
         return self._process_refined_cards(refined_cards)
@@ -1324,7 +1410,7 @@ class MedicalAnkiGenerator:
         "facts": ["BRCA1", "60-80%"],
         "context": "Key genetic risk factor for breast cancer screening decisions",
         "clinical_relevance": "Indicates need for enhanced surveillance or prophylactic measures",
-        "original_indices": [0]
+        "original_index": [0]
         }}
     ],
     "decisions": [
@@ -1343,7 +1429,7 @@ class MedicalAnkiGenerator:
         }},
         {{
         "action": "merged",
-        "original_indices": [5, 8],
+        "original_index": [5, 8],
         "original_texts": ["Card about CDK4/6 inhibitors", "Another card about CDK4/6 inhibitors"],
         "reason": "Both cards tested the same concept about CDK4/6 inhibitors"
         }}
@@ -1354,16 +1440,19 @@ class MedicalAnkiGenerator:
 
     def _build_hints_only_prompt(self, lecture_name: str, cards: List[Dict]) -> str:
         """Build prompt for adding hints only."""
-        return f"""You are adding descriptive hints to medical flashcards from "{lecture_name}".
+        return f"""You are adding descriptive hints to medical flashcards from "{lecture_name}" for MEDICAL STUDENTS.
 
-    TASK: Add hints to cloze deletions to reduce ambiguity without giving away answers.
+    PRIMARY GOAL: Ensure every Anki flashcard has appropriate hints to help medical students learn effectively.
+
+    TASK: Add hints to ALL cloze deletions where they would reduce ambiguity. A hint should be present for EVERY cloze unless it would provide no value.
 
     {PromptTemplates.get_hint_instructions()}
 
     CRITICAL RULES:
     - DO NOT change the card text except for adding hints
     - DO NOT change cloze numbers
-    - Only add hints where they reduce ambiguity
+    - MUST add hints to ALL clozes unless they provide zero value
+    - Provide a reason for each hint decision
     - Format: {{{{c1::answer::hint}}}}
 
     Current cards WITHOUT hints:
@@ -1371,21 +1460,37 @@ class MedicalAnkiGenerator:
 
     Return JSON:
     {{
-    "cards_with_hints": [
-        {{
-        "slide": 1,
-        "text": "Card text with {{{{c1::answer::appropriate_hint}}}} added",
-        "facts": ["fact1"],
-        "context": "Context",
-        "clinical_relevance": "Clinical pearl"
-        }}
-    ]
+        "cards_with_hints": [
+            {{
+                "slide": 1,
+                "text": "Card text with {{{{c1::answer::appropriate_hint}}}} added",
+                "facts": ["fact1"],
+                "context": "Context",
+                "clinical_relevance": "Clinical pearl"
+            }}
+        ],
+        "hint_decisions": [
+            {{
+                "card_index": 0,
+                "cloze": "c1::answer",
+                "hint_added": "appropriate_hint",
+                "reason": "Added 'drug class' hint to distinguish from other treatment options"
+            }},
+            {{
+                "card_index": 0,
+                "cloze": "c2::obvious_answer",
+                "hint_added": null,
+                "reason": "No hint needed - answer is unambiguous in context"
+            }}
+        ]
     }}"""
 
     def _build_grouping_only_prompt(self, lecture_name: str, cards: List[Dict]) -> str:
         """Build prompt for optimizing cloze grouping only."""
 
-        return f"""You are optimizing cloze number grouping for medical flashcards from "{lecture_name}".
+        return f"""You are optimizing cloze number grouping for medical flashcards from "{lecture_name}" specifically for MEDICAL STUDENTS.
+
+    PRIMARY GOAL: Create Anki flashcards that help medical students effectively learn and retain clinical knowledge.
 
     TASK: Optimize cloze number assignments to create the fewest cards while maintaining clarity.
 
@@ -1394,36 +1499,130 @@ class MedicalAnkiGenerator:
     CRITICAL RULES:
     - DO NOT change card text or remove hints
     - ONLY adjust cloze numbers (c1, c2, c3, etc.)
+    - Provide a reason for each grouping decision
 
     Current cards WITH hints:
     {json.dumps(cards, indent=2)}
 
     Return JSON:
     {{
-    "optimized_cards": [
-        {{
-        "slide": 1,
-        "text": "Card with optimized {{{{c1::answer::hint}}}} numbers",
-        "facts": ["fact1"],
-        "context": "Context",
-        "clinical_relevance": "Clinical pearl"
-        }}
-    ]
+        "optimized_cards": [
+            {{
+                "slide": 1,
+                "text": "Card with optimized {{{{c1::answer::hint}}}} numbers",
+                "facts": ["fact1"],
+                "context": "Context",
+                "clinical_relevance": "Clinical pearl",
+                "grouping_reason": "Grouped symptoms together as they represent related clinical features of the same condition"
+            }}
+        ],
+        "grouping_decisions": [
+            {{
+                "card_index": 0,
+                "original_cloze_pattern": "c1, c2, c3 for individual symptoms",
+                "new_cloze_pattern": "all c1 for grouped symptoms",
+                "reason": "Symptoms of the same disease should be learned together"
+            }}
+        ]
     }}"""
+
+    def _build_ambiguity_check_prompt(self, lecture_name: str, cards: List[Dict]) -> str:
+        """Build prompt for final ambiguity check."""
+        return f"""You are performing a final ambiguity check on medical flashcards from "{lecture_name}" for MEDICAL STUDENTS.
+
+    PRIMARY GOAL: Ensure every Anki flashcard is unambiguous and appropriately challenging for medical student learning.
+
+    TASK: For EACH cloze card, perform this systematic check:
+
+    1. Write out the card WITHOUT cloze deletions (replace with * or _)
+    2. Check if context/topic is clear (ambiguity = >100 possible answers for a medical student)
+    3. Check if deletions are guessable within a narrow domain
+    4. Check if deletions are too obvious (mutually exclusive options not deleted, acronyms spelled out)
+    5. Check if hints sufficiently reduce ambiguity
+    6. Check if hints are too obvious
+    7. Take action: modify text/hints OR mark for removal if obvious
+
+    EXAMPLE ANALYSIS:
+    Original: A careful history guides {{{{c1::seizure classification}}}}, {{{{c1::epilepsy syndrome diagnosis}}}}, and {{{{c1::antiseizure medication titration::management}}}}.
+    Without cloze: A careful history guides *, *, and _.
+    Context check: FAIL - seizure context missing, >100 possible clinical scenarios
+    Guessability: FAIL - too broad without disease context
+    Obviousness: PASS - not obvious
+    Hints check: FAIL - "management" too vague without disease context
+    Hints Obviousness: PASS - not obvious
+    Action: ADD CONTEXT
+    New: A careful seizure history guides {{{{c1::seizure classification::seizure diagnosis}}}}, {{{{c1::epilepsy syndrome diagnosis::epilepsy diagnosis}}}}, and {{{{c1::antiseizure medication titration::management}}}}.
+
+    Current cards:
+    {json.dumps(cards, indent=2)}
+
+    Return JSON:
+    {{
+        "checked_cards": [
+            {{
+                "slide": 1,
+                "text": "Final checked card text",
+                "facts": ["fact1"],
+                "context": "Context",
+                "clinical_relevance": "Clinical pearl"
+            }}
+        ],
+        "ambiguity_decisions": [
+            {{
+                "card_index": 0,
+                "original_text": "Original card text",
+                "without_cloze": "Card with * and _ replacing clozes",
+                "context_clear": false,
+                "guessability": "too broad",
+                "obviousness": "appropriate",
+                "hints_sufficient": false,
+                "hints_obvious": false,
+                "action": "modified",
+                "new_text": "Modified card with better context",
+                "reason": "Added disease context to reduce ambiguity from >100 to <10 possible answers"
+            }}
+        ]
+    }}"""
+
     def _save_refinement_logs(self, refinement_log_file: Path, lecture_name: str, 
-                            total_original_cards: int, refined_cards: List[Dict], 
-                            decisions: List[Dict]):
-        """Save refinement logs in both JSON and human-readable formats."""
+                                        total_original_cards: int, refined_cards: List[Dict], 
+                                        all_decisions: List[Dict], hint_decisions: List[Dict],
+                                        grouping_decisions: List[Dict], ambiguity_decisions: List[Dict]):
+        """Save comprehensive refinement logs from all stages."""
         refinement_data = {
             "lecture": lecture_name,
             "timestamp": datetime.now().isoformat(),
             "original_count": total_original_cards,
             "refined_count": len(refined_cards),
-            "decisions": decisions,
+            "all_decisions": all_decisions,
+            "stage_breakdown": {
+                "stage1_refinement": {
+                    "decisions": [d for d in all_decisions if d.get('stage') == 'refinement'],
+                    "removed": len([d for d in all_decisions if d.get('stage') == 'refinement' and d.get('action') == 'removed']),
+                    "merged": len([d for d in all_decisions if d.get('stage') == 'refinement' and d.get('action') == 'merged']),
+                    "modified": len([d for d in all_decisions if d.get('stage') == 'refinement' and d.get('action') == 'modified'])
+                },
+                "stage2_hints": {
+                    "decisions": hint_decisions,
+                    "hints_added": len([d for d in hint_decisions if d.get('hint_added')])
+                },
+                "stage3_grouping": {
+                    "decisions": grouping_decisions,
+                    "regrouped": len(grouping_decisions)
+                },
+                "stage4_ambiguity": {
+                    "decisions": ambiguity_decisions,
+                    "modified": len([d for d in ambiguity_decisions if d.get('action') == 'modified'])
+                }
+            },
             "summary": {
-                "removed": len([d for d in decisions if d.get('action') == 'removed']),
-                "merged": len([d for d in decisions if d.get('action') == 'merged']),
-                "modified": len([d for d in decisions if d.get('action') == 'modified'])
+                "total_decisions": len(all_decisions),
+                "removed": len([d for d in all_decisions if d.get('action') == 'removed']),
+                "merged": len([d for d in all_decisions if d.get('action') == 'merged']),
+                "modified": len([d for d in all_decisions if d.get('action') == 'modified']),
+                "hints_added": len([d for d in hint_decisions if d.get('hint_added')]),
+                "grouping_changes": len(grouping_decisions),
+                "ambiguity_fixes": len([d for d in ambiguity_decisions if d.get('action') == 'modified'])
             }
         }
         
@@ -1431,43 +1630,67 @@ class MedicalAnkiGenerator:
         with open(refinement_log_file, 'w', encoding='utf-8') as f:
             json.dump(refinement_data, f, indent=2, ensure_ascii=False)
         
-        print(f"📝 Refinement decisions logged to: {refinement_log_file}")
-        self.logger.info(f"Refinement complete: {total_original_cards} → {len(refined_cards)} cards")
-        self.logger.info(f"Removed: {refinement_data['summary']['removed']}, "
-                        f"Merged: {refinement_data['summary']['merged']}, "
-                        f"Modified: {refinement_data['summary']['modified']}")
+        print(f"📝 Comprehensive refinement log saved to: {refinement_log_file}")
         
         # Create human-readable summary
         summary_file = refinement_log_file.with_suffix('.txt')
         with open(summary_file, 'w', encoding='utf-8') as f:
-            f.write(f"Refinement Summary for {lecture_name}\n")
+            f.write(f"Multi-Stage Refinement Summary for {lecture_name}\n")
             f.write(f"{'='*60}\n")
             f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Original cards: {total_original_cards}\n")
-            f.write(f"Refined cards: {len(refined_cards)}\n")
+            f.write(f"Final refined cards: {len(refined_cards)}\n")
             if total_original_cards > 0:
                 reduction_percent = (1 - len(refined_cards)/total_original_cards) * 100
-                f.write(f"Reduction: {total_original_cards - len(refined_cards)} cards ({reduction_percent:.1f}%)\n\n")
-            else:
-                f.write(f"Reduction: 0 cards (0.0%)\n\n")
+                f.write(f"Overall reduction: {total_original_cards - len(refined_cards)} cards ({reduction_percent:.1f}%)\n\n")
             
-            f.write("DECISIONS:\n")
+            f.write("STAGE-BY-STAGE BREAKDOWN:\n")
             f.write("-"*60 + "\n\n")
             
-            for decision in decisions:
-                f.write(f"ACTION: {decision['action'].upper()}\n")
-                if decision['action'] == 'removed':
-                    f.write(f"Card #{decision['original_index']}: {decision.get('original_text', 'N/A')[:100]}...\n")
-                elif decision['action'] == 'merged':
-                    f.write(f"Cards #{decision['original_indices']}\n")
-                elif decision['action'] == 'modified':
-                    f.write(f"Card #{decision['original_index']}\n")
-                    f.write(f"Original: {decision.get('original_text', 'N/A')[:100]}...\n")
-                    f.write(f"New: {decision.get('new_text', 'N/A')[:100]}...\n")
-                f.write(f"REASON: {decision['reason']}\n")
-                f.write("-"*40 + "\n\n")
+            # Stage 1 summary
+            f.write("STAGE 1: Initial Refinement\n")
+            stage1_data = refinement_data['stage_breakdown']['stage1_refinement']
+            f.write(f"  Removed: {stage1_data['removed']} cards\n")
+            f.write(f"  Merged: {stage1_data['merged']} cards\n")
+            f.write(f"  Modified: {stage1_data['modified']} cards\n\n")
+            
+            # Stage 2 summary
+            f.write("STAGE 2: Hint Addition\n")
+            stage2_data = refinement_data['stage_breakdown']['stage2_hints']
+            f.write(f"  Hints added: {stage2_data['hints_added']}\n\n")
+            
+            # Stage 3 summary
+            f.write("STAGE 3: Grouping Optimization\n")
+            stage3_data = refinement_data['stage_breakdown']['stage3_grouping']
+            f.write(f"  Cards regrouped: {stage3_data['regrouped']}\n\n")
+            
+            # Stage 4 summary
+            f.write("STAGE 4: Ambiguity Check\n")
+            stage4_data = refinement_data['stage_breakdown']['stage4_ambiguity']
+            f.write(f"  Cards modified for clarity: {stage4_data['modified']}\n\n")
+            
+            f.write("-"*60 + "\n")
+            f.write("DETAILED DECISIONS:\n")
+            f.write("-"*60 + "\n\n")
+            
+            # Write detailed decisions by stage
+            for stage_num, stage_name in enumerate(['refinement', 'hints', 'grouping', 'ambiguity_check'], 1):
+                stage_decisions = [d for d in all_decisions if d.get('stage') == stage_name]
+                if stage_decisions:
+                    f.write(f"\nSTAGE {stage_num} - {stage_name.upper()}:\n")
+                    for decision in stage_decisions:
+                        f.write(f"  Index: {decision.get('card_index', 'N/A')}\n")
+                        f.write(f"  Action: {decision.get('action', 'N/A')}\n")
+                        f.write(f"  Reason: {decision.get('reason', 'N/A')}\n")
+                        f.write("  " + "-"*30 + "\n")
         
         print(f"📄 Human-readable summary saved to: {summary_file}")
+        
+        self.logger.info(f"Multi-stage refinement complete:")
+        self.logger.info(f"  Stage 1: {stage1_data['removed']} removed, {stage1_data['merged']} merged, {stage1_data['modified']} modified")
+        self.logger.info(f"  Stage 2: {stage2_data['hints_added']} hints added")
+        self.logger.info(f"  Stage 3: {stage3_data['regrouped']} cards regrouped")
+        self.logger.info(f"  Stage 4: {stage4_data['modified']} cards clarified")
     
     def _process_refined_cards(self, refined_cards: List[Dict]) -> List[Dict]:
         """Process and organize refined cards back into slide structure."""
