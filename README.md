@@ -42,35 +42,28 @@ pip install pymupdf pillow requests genanki
 
 ### Basic Usage
 ```bash
-python ankify.py YOUR_API_KEY lecture.pdf
+python ankify.py YOUR_API_KEY lecture.pdf --multiple-cloze
 ```
 
 ### Process Entire Folder
 ```bash
-python ankify.py YOUR_API_KEY /path/to/lectures/
-```
-
-### Advanced Mode (Recommended)
-```bash
-python ankify.py YOUR_API_KEY lecture.pdf --advanced
+python ankify.py YOUR_API_KEY /path/to/lectures/  --multiple-cloze
 ```
 
 ## 🎮 Command Line Options
 
 ### Core Options
 - `--single-card` - All cloze deletions on one card (uses {{c1::}} only)
-- `--advanced` - Enable AI critique & refinement pass (recommended)
 - `--no-resume` - Start fresh without resuming from previous progress
-- `--test-mode` - Pause before each API call for manual confirmation
+- `--test-mode` - Pause before each API call for manual confirmation that the current setup is working
+- `--flex-processing` - use cheaper AI API calls at the cost of speed/reliability 
 
 ### Performance Options
-- `--batch` - Process all slides in one API call (faster, more efficient)
 - `--compress=LEVEL` - Image compression level:
-  - `none` - Original quality (default)
+  - `none` - Original quality 
   - `low` - 1024px, JPEG 90%
-  - `medium` - 800px, JPEG 85% (recommended for batch)
-  - `high` - 512px, JPEG 80% (maximum savings)
-- `--preserve-quality` - Keep original image quality in Anki cards
+  - `medium` - 800px, JPEG 85% 
+  - `high` - 512px, JPEG 80% (default)
 
 ### Customization Options
 - `--tags=tag1,tag2` - Add custom tags to all cards
@@ -87,27 +80,17 @@ python ankify.py YOUR_API_KEY lecture.pdf --advanced
 
 ### Standard Processing
 ```bash
-python ankify.py sk-abc123... cardiology_lecture.pdf
+python ankify.py sk-abc123... cardiology_lecture.pdf  --multiple-cloze
 ```
 
 ### Cost-Efficient Batch Processing
 ```bash
-python ankify.py sk-abc123... /lectures/ --batch --compress=medium
+python ankify.py sk-abc123... /lectures/ --multiple-cloze
 ```
 
 ### Full Featured with Custom Styling
 ```bash
-python ankify.py sk-abc123... lecture.pdf --advanced --tags=cardiology,semester2 --style=background=#1a1a1a,text_color=#ffffff,cloze_color=#00ff00 --add-hints
-```
-
-### Test Mode with Quality Preservation
-```bash
-python ankify.py sk-abc123... lecture.pdf --test-mode --preserve-quality
-```
-
-### Maximum Efficiency (Lowest Cost)
-```bash
-python ankify.py sk-abc123... /lectures/ --batch --compress=high --single-card
+python ankify.py sk-abc123... lecture.pdf  --multiple-cloze --tags=cardiology,semester2 --style=background=#1a1a1a,text_color=#ffffff,cloze_color=#00ff00 
 ```
 
 ## 📂 Input/Output Structure
@@ -135,15 +118,13 @@ anki_output/
 ## 💡 Tips for Optimal Results
 
 ### Card Quality
-- **Use Advanced Models**: Always use o3 or equivalent for best results
-- **Enable Advanced Mode**: The refinement pass significantly improves card quality
+- **Use Advanced Models**: Always use o3 or GPT5 for best results
 - **Combine Multi-Part Lectures**: Process "Part 1/2/3" as a single file to maintain context
 - **Review Generated Cards**: While cards are self-contained, personal review ensures they match your learning style
 
 ### Cost Efficiency
-- **Batch Processing**: Use `--batch` to reduce API calls
-- **Compression**: Use `--compress=medium` or `high` for significant cost savings
-- **Combine Lectures**: Merge related PDFs before processing
+- **Batch Processing** and **Compression**: These are implemented by default, cutting huge costs on API calls while retaining quality
+- **Combine Lectures**: Merge related PDFs before processing, remove large redundant images
 - **Test Mode**: Use `--test-mode` to verify quality before processing large batches
 
 ### Troubleshooting
@@ -156,7 +137,7 @@ anki_output/
 1. **PDF Extraction**: Converts each slide to a high-quality image
 2. **AI Analysis**: Sends slides to OpenAI API for medical content extraction
 3. **Card Generation**: Creates cloze deletion cards with clinical context
-4. **Refinement** (optional): AI reviews and optimizes all cards
+4. **Refinement** (optional): AI reviews and optimizes all cards via multiple iterative steps -> improving cloze content, card grouping, hints and general quality
 5. **Package Creation**: Builds `.apkg` file with cards, images, and styling
 
 ## 🎯 Card Quality Features
