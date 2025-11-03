@@ -35,12 +35,12 @@ class PromptTemplates:
         """Get common card creation rules used in both analysis and critique."""
         return """
 CRITICAL RULES FOR CARD CREATION:
-1. Cards will be reviewed WITHOUT the context of the lecture - ensure each card is self-contained
+1. Cards will be reviewed WITHOUT the context of the lecture, other cards, or deck context - ensure each card is self-contained
 2. Avoid ambiguous cloze deletions - the answer should be clear from the surrounding context
 3. Focus on learning outcomes and objectives if shown on the slide
-4. DO NOT create cards about the title, learning objectives, or outline themselves
+4. DO NOT create cards about the title, author, learning objectives, or outline themselves
 5. NEVER create cloze deletions where the answer is given elsewhere in the card (e.g., in parentheses, as an abbreviation expansion)
-6. When abbreviations are important, test the abbreviation OR the full name, not both
+6. When abbreviations are important, include the abbreviation and the full name for context, testing both simultaneously
 7. Always include disease/condition context when listing causes, symptoms, or treatments
 8. Check for formatting errors in cloze syntax (no spaces between colons)
 9. Don't test irrelevant details from other conditions mentioned in passing
@@ -215,6 +215,37 @@ ADDITIONAL EXAMPLES TO AVOID:
 → Problem: Formatting error with space between colons
 ✅ BETTER: "For {{c1::minor stroke}}, start {{c2::aspirin}} plus {{c2::clopidogrel}}"
 
+❌ BAD: "Follow-up after treatment or during observation typically uses {{c1::T1-weighted MRI::imaging sequence}}"
+→ Problem: "Treatment" for what? No disease context makes this completely ambiguous
+✅ BETTER: "Follow-up after {{c2::brain tumour}} treatment typically uses {{c1::T1-weighted MRI::imaging sequence}} with {{c1::gadolinium enhancement::contrast agent}}"
+
+❌ BAD: "The compound muscle action potential ({{c1::CMAP::abbreviation}}) amplitude reflects..."
+→ Problem: Full name already given, defeats the cloze purpose
+✅ BETTER: "The {{c1::compound muscle action potential (CMAP)}} amplitude reflects the {{c2::summed action potentials of activated muscle fibers::physiologic basis}}"
+
+# Add after existing BAD examples (around line 370):
+
+❌ BAD: "{{c1::Potassium-sparing diuretics::drug class}} act in the {{c1::collecting duct::site of action}}"
+→ Problem: Drug class and anatomical site must ALWAYS be separate cloze numbers
+✅ BETTER: "{{c1::Potassium-sparing diuretics::drug class}} act in the {{c2::collecting duct::site of action}}"
+
+❌ BAD: "According to AUA guidance, {{c1::allopurinol::drug/medication}} should {{c1::not}} be used as first-line therapy"
+→ Problem: Testing "not" is meaningless; testing a drug that shouldn't be used misses the learning objective
+✅ BETTER: "For {{c1::uric acid}} stones, first-line therapy is {{c2::urinary alkalinisation::management}} (not allopurinol)"
+
+❌ BAD: "{{c1::T2::T stage}} disease signifies invasion of the {{c2::detrusor muscle::anatomic layer}}"
+→ Problem: "T2 disease" without cancer context is completely ambiguous
+✅ BETTER: "In {{c3::bladder cancer}}, {{c1::T2::T stage}} signifies invasion of the {{c2::detrusor muscle::anatomic layer}}"
+
+❌ BAD: "{{c1::Autosomal recessive polycystic kidney disease (ARPKD)::disease}} presents in infancy and has a {{c2::high mortality::prognosis}}"
+→ Problem: Once disease name is hidden, "presents in infancy" could apply to hundreds of conditions
+✅ BETTER: "{{c1::ARPKD::renal}} presents in {{c2::infancy::age}} with {{c3::high mortality::prognosis}}"
+
+❌ BAD REFINEMENT: Converting non-cloze acronyms into clozes. If an acronym/term was NOT in a cloze deletion originally, DO NOT convert it into a cloze deletion
+Original: "An <b>RCT</b> showed that maintaining {{c1::>2 L/day}} urinary volume led to {{c2::lower recurrence}}."
+Bad refinement: "A {{c1::randomized controlled trial (RCT)}} showed that maintaining {{c2::>2 L/day}} urinary volume led to {{c3::lower recurrence}}."
+→ Problem: RCT was intentionally NOT a cloze deletion in the original - don't create new clozes for acronyms that were just bold text. Only expand acronyms and put them in cloze deletions if they were ALREADY in cloze deletions: {{c1::RCT}} → {{c1::randomized controlled trial (RCT)}}
+✅ CORRECT: Keep original structure - "An <b>RCT</b> showed that maintaining {{c1::>2 L/day}} urinary volume led to {{c2::lower recurrence}} at 5 years."
 
 CRITICAL CARD EVALUATION QUESTIONS:
 Before finalizing any card, ask:
@@ -252,6 +283,16 @@ ADVANCED CLOZE PRINCIPLES:
 ✅ COMPREHENSIVE: "{{c1::CDK4/6 inhibitors}} like {{c2::palbociclib}} block {{c3::G1-to-S phase transition}}, arresting {{c4::proliferation}} of ER+ cells"
 → Tests drug class, example, mechanism, and effect
 
+❌ AVOID: "{{c1::allopurinol}} should {{c1::not}} be used first-line for uric acid stones"
+✅ PREFER: "First-line for {{c1::uric acid}} stones is {{c2::urinary alkalinisation}}"
+→ Tests first line treatment rather than what is NOT the first line treatment
+
+❌ TOO BASIC: "Acute pancreatitis is an {{c1::acute inflammatory process::definition}} of the {{c2::pancreas::organ}}"
+✅ PREFER: Delete this card
+→ Doesn't help learning at a medical student level. Answer is evident from disease name. 
+
+
+
 CONTEXT PRESERVATION RULES:
 - When testing causes/symptoms/treatments, ALWAYS specify what condition they relate to
 - Bad: "Common causes include {{c1::atrial fibrillation}}"
@@ -260,11 +301,24 @@ CONTEXT PRESERVATION RULES:
 - Bad: "The {{c1::Fisher}} grade predicts vasospasm"
 - Good: "In SAH, the {{c1::Fisher}} grade predicts {{c2::vasospasm}}"
 
+CRITICAL CONTEXT REQUIREMENTS:
+- NEVER use generic medical terms without disease context:
+  ❌ "Follow-up after treatment uses..." → What treatment? For what condition?
+  ❌ "Management includes..." → Management of what?
+  ❌ "Diagnosis requires..." → Diagnosis of what?
+  ✅ "Follow-up after brain tumour treatment uses..."
+  ✅ "Management of acute MI includes..."
+  ✅ "Diagnosis of pneumonia requires..."
+
 ANSWER LEAKAGE PREVENTION:
 - Never include the answer in parentheses after a cloze
-- Never spell out abbreviations before testing them
+- Abbreviations and their full spelling should be tested simultaneously
 - Remove redundant information that gives away cloze answers
 - If showing ranges or examples, incorporate them INTO the cloze or remove them
+- Acronyms with full names spelled out:
+  ❌ "The compound muscle action potential ({{c1::CMAP::abbreviation}})"
+  ✅ "The {{c1::compound muscle action potential (CMAP)}} reflects..."
+  → If full name is given, test both together
 
 CRITICAL REMINDERS:
 - Test ALL important facts in a statement, not just one
@@ -316,6 +370,8 @@ Your task is to create flashcards appropriate for medical student level:
 - Historical facts unless clinically relevant
 - Subspecialty-specific technical details
 - Future research priorities or ongoing trials
+- Treatments/drugs that should NOT be used (focus on what TO do, not what NOT to do)
+- Testing the word "not" itself (test the actual recommendation instead)
 
 4) SKIP slides that only contain:
 - Title/topic announcements
@@ -352,6 +408,8 @@ GOAL: Create the FEWEST separate cloze cards possible while preventing excessive
 
 CORE PRINCIPLE: Group related concepts together with the same cloze number. When in doubt, use fewer cloze numbers rather than more (it's easier to manually split than to combine).
 
+When you see mixed categories in one cloze, immediately split them based on what type of answer they represent.
+
 GROUPING GUIDELINES:
 
 1. ALWAYS GROUP TOGETHER (same cloze number):
@@ -367,11 +425,14 @@ GROUPING GUIDELINES:
 
 2. SEPARATE INTO DIFFERENT CLOZE NUMBERS:
    - Test name vs test result
+   - Test/grade name vs what organ/disease it applies to (T2 vs bladder cancer)
    - Drug name vs mechanism of action
    - Drug name vs related indication 
    - Drug name vs its antidote/reversal agent
-   - Disease name vs symptoms/signs/tissue/location 
+   - Drug class vs site of action (Potassium-sparing diuretics vs collecting duct)
    - Disease name vs treatment
+   - Target value vs drug used to achieve it
+   - Disease name vs symptoms/signs/tissue/location/mechanism (anything associated with that disease) 
    - Pathology/disease vs its mechanism
    - Anatomical location vs pathology type 
    - Anatomical structure/vessel vs resulting syndrome
@@ -381,13 +442,15 @@ GROUPING GUIDELINES:
    - Factor levels vs severity grades
    - Variant types vs prognosis
    - Management action vs its complication/outcome
-   - Target value vs drug used to achieve it
    - Grading system name vs what it predicts
+   - Item name vs its characteristic/property (calcium oxalate vs pH-independent)
+   - Condition type vs associated pH/environment (stone type vs pH condition)
+   - Different answer categories even if related (stone names vs pH levels vs pathogen traits)
 
 3. EXAMPLES OF GOOD FINE-TUNED GROUPING:
 
-✅ GOOD: "Symptoms of DKA include {{c1::polyuria}}, {{c1::polydipsia}}, and {{c1::weight loss}}, with labs showing {{c2::glucose >250}} and {{c2::pH <7.3}}"
-→ Groups symptoms together (c1) and lab values together (c2)
+✅ GOOD: "Symptoms of {{c3::DKA}} include {{c1::polyuria}}, {{c1::polydipsia}}, and {{c1::weight loss}}, with labs showing {{c2::glucose >250}} and {{c2::pH <7.3}}"
+→ Groups symptoms together (c1) and lab values together (c2), with disease/syndrome separate (c3)
 
 ✅ GOOD: "{{c1::Metformin}} and {{c1::sulfonylureas}} are oral agents, while {{c2::insulin}} is injectable for diabetes"
 → Groups oral agents together, separates by route
@@ -484,6 +547,30 @@ GROUPING GUIDELINES:
 ❌ BAD: "The {{c1::Fisher}} grade is a {{c1::CT-based}} score that correlates with risk of {{c2::cerebral vasospasm}}"
 → Grade name and imaging modality should be separate, plus missing SAH context
 
+❌ BAD: "Among {{c1::primary brain tumours}} in adults, the most common is {{c1::meningioma}}"
+→ Category and specific example must be separate - too ambiguous when both hidden
+✅ BETTER: "Among {{c1::primary brain tumours}} in adults, the most common is {{c2::meningioma}}"
+
+❌ BAD: "{{c1::Potassium-sparing diuretics::drug class}} act in the {{c1::collecting duct::site of action}}"
+→ Drug class and anatomical site must be separate
+✅ BETTER: "{{c1::Potassium-sparing diuretics::drug class}} act in the {{c2::collecting duct::site of action}}"
+
+❌ TERRIBLE GROUPING: Mixing categories that have different relationships
+"Urinary pH influences stone precipitation: {{c1::uric acid::stone type}} precipitates in {{c1::acidic::pH condition}} urine, whereas {{c1::calcium phosphate::stone type}} precipitates in {{c1::alkaline::pH condition}} urine."
+→ Problem: Stone types (uric acid, calcium phosphate) are grouped with pH conditions (acidic, alkaline) - these are NOT the same category. When all are hidden, you can't tell if you're answering with a stone type or pH condition
+✅ CORRECT: "Urinary pH influences stone precipitation: {{c1::uric acid}} precipitates in {{c2::acidic}} urine, whereas {{c1::calcium phosphate}} precipitates in {{c2::alkaline}} urine."
+→ Groups stone types together (c1), groups pH conditions together (c2)
+
+❌ TERRIBLE: Mixing property types with items
+"{{c1::Calcium oxalate::stone type}} is relatively {{c1::pH-independent::property}}"
+→ Problem: Stone name and its property are completely different answer types
+✅ CORRECT: "{{c1::Calcium oxalate}} is relatively {{c2::pH-independent}}"
+
+❌ BAD: Mixing pathogen traits with stone types
+"{{c1::struvite::stone type}} precipitate in alkaline urine (struvite often due to {{c1::urease-positive infection::pathogen trait}})"
+→ Problem: Stone type and pathogen characteristic are unrelated categories
+✅ CORRECT: "{{c1::struvite}} precipitate in {{c2::alkaline}} urine (struvite often due to {{c3::urease-positive}} infection)"
+
 5. DECISION FRAMEWORK:
    - Can the blanks be logically filled when hidden together? → Use same cloze
    - Would hiding them together make the card unanswerable? → Use different cloze
@@ -494,6 +581,8 @@ GROUPING GUIDELINES:
    - Is one a drug/medication and the other an indication? → ALWAYS use different cloze
    - Is one a location and the other a pathology? → ALWAYS use different cloze
    - Is one a disease/pathogen and the other symptoms/location? → ALWAYS use different cloze
+   - Are they different types of answers to different implicit questions? → ALWAYS use different cloze. Example: "What stone?" (uric acid) vs "What pH?" (acidic) = different clozes
+   - Would a student be confused whether to answer with category A or category B when the blank appears? → Use different cloze
 
 6. ERR ON THE SIDE OF GROUPING:
    When uncertain (except for the mandatory separations above), prefer fewer cloze numbers. It's easier to manually create additional cards later than to merge multiple cards.
@@ -584,7 +673,7 @@ WHY: "action" is a generic placeholder that provides no hint value and is alread
 ❌ Inaccurate hints: Whole blood is roughly {{c1::55 % plasma::percentage}} and {{c1::45 % formed elements (red cells, white cells, platelets)::percentage}}.
 WHY: The deletion is not just a percentage but a percentage AND a component of blood. Hints must accurately describe the WHOLE cloze deletion content
 
-❌ Redundant hints: {{c1::nausea::nausea symptom}}
+❌ Redundant hints: {{c1::nausea::nausea symptom}}, Chronic pancreatitis (CP) is a chronic relapsing condition with debilitating epigastric pain; many patients have poor {{c1::quality of life::quality-of-life impact}} 
 
 ❌ Hints that give away the answer: In HITTS, platelet transfusion is {{c1::contra-indicated::contraindication}}
 WHY: The hint "contraindication" is literally the same as the cloze "contra-indicated" - provides no value
@@ -859,12 +948,85 @@ class MedicalAnkiGenerator:
     
     def add_bold_formatting(self, text: str) -> str:
         """Add bold formatting to key medical terms not in cloze deletions."""
-        key_patterns = [
+        
+        # Keep your original patterns
+        existing_key_patterns = [
             r'\b(diagnosis|treatment|syndrome|disease|disorder|symptom|sign|pathophysiology|mechanism|receptor|enzyme|hormone|drug|medication|dose|contraindication|indication|complication|prognosis|etiology|differential|investigation|management)\b',
             r'\b(acute|chronic|primary|secondary|benign|malignant|systemic|focal|diffuse|bilateral|unilateral)\b',
             r'\b(\d+\s*(?:mg|mcg|g|kg|mL|L|mmHg|bpm|/min|/hr|/day|%|mmol|mg/dL))\b'
         ]
         
+        # Medical suffix patterns - these are highly indicative of medical terms
+        medical_suffixes = [
+            r'\b\w+oma\b',          # tumors (carcinoma, lymphoma, melanoma)
+            r'\b\w+itis\b',         # inflammation (hepatitis, arthritis, dermatitis)
+            r'\b\w+osis\b',         # abnormal condition (fibrosis, cirrhosis, psychosis)
+            r'\b\w+pathy\b',        # disease (neuropathy, cardiomyopathy, retinopathy)
+            r'\b\w+emia\b',         # blood condition (anemia, leukemia, hyperglycemia)
+            r'\b\w+ectomy\b',       # surgical removal (appendectomy, mastectomy)
+            r'\b\w+otomy\b',        # surgical incision (tracheotomy, laparotomy)
+            r'\b\w+plasty\b',       # surgical repair (angioplasty, rhinoplasty)
+            r'\b\w+scopy\b',        # examination (endoscopy, colonoscopy, arthroscopy)
+            r'\b\w+gram\b',         # recording/image (mammogram, angiogram, electrocardiogram)
+            r'\b\w+lysis\b',        # breakdown (hemolysis, dialysis, paralysis)
+            r'\b\w+penia\b',        # deficiency (neutropenia, thrombocytopenia)
+            r'\b\w+megaly\b',       # enlargement (hepatomegaly, splenomegaly, cardiomegaly)
+            r'\b\w+algia\b',        # pain (neuralgia, myalgia, arthralgia)
+            r'\b\w+rrhea\b',        # flow/discharge (diarrhea, rhinorrhea, amenorrhea)
+            r'\b\w+stenosis\b',     # narrowing (stenosis terms)
+            r'\b\w+toxic\b',        # poisonous (hepatotoxic, nephrotoxic, cytotoxic)
+            r'\b\w+genic\b',        # producing/causing (carcinogenic, pathogenic, allergenic)
+        ]
+        
+        # Common drug name patterns
+        drug_patterns = [
+            r'\b\w+mab\b',          # monoclonal antibodies (rituximab, trastuzumab)
+            r'\b\w+nib\b',          # kinase inhibitors (imatinib, erlotinib, sunitinib)
+            r'\b\w+tide\b',         # peptides (octreotide, exenatide)
+            r'\b\w+ole\b',          # antifungals and PPIs (omeprazole, fluconazole)
+            r'\b\w+statin\b',       # statins (atorvastatin, simvastatin)
+            r'\b\w+pril\b',         # ACE inhibitors (enalapril, lisinopril)
+            r'\b\w+sartan\b',       # ARBs (losartan, valsartan)
+            r'\b\w+olol\b',         # beta blockers (metoprolol, atenolol)
+            r'\b\w+dipine\b',       # calcium channel blockers (amlodipine, nifedipine)
+            r'\b\w+azole\b',        # antifungals (fluconazole, ketoconazole)
+            r'\b\w+cillin\b',       # penicillins (amoxicillin, ampicillin)
+            r'\b\w+mycin\b',        # antibiotics (erythromycin, azithromycin)
+            r'\b\w+cycline\b',      # tetracyclines (doxycycline, minocycline)
+            r'\b\w+floxacin\b',     # fluoroquinolones (ciprofloxacin, levofloxacin)
+            r'\b\w+vir\b',          # antivirals (acyclovir, oseltamivir)
+            r'\b\w+prazole\b',      # PPIs (omeprazole, esomeprazole)
+            r'\b\w+tidine\b',       # H2 blockers (ranitidine, famotidine)
+            r'\b\w+azepam\b',       # benzodiazepines (diazepam, lorazepam)
+            r'\b\w+zolam\b',        # benzodiazepines (midazolam, alprazolam)
+            r'\b\w+triptan\b',      # migraine drugs (sumatriptan, rizatriptan)
+        ]
+        
+        # Additional high-priority medical terms
+        additional_terms = [
+            # Common conditions not in original
+            r'\bcarcinoma\b', r'\blymphoma\b', r'\bleukemia\b', r'\bmelanoma\b',
+            r'\bdiabetes\b', r'\bhypertension\b', r'\basthma\b', r'\bCOPD\b', r'\bpneumonia\b',
+            r'\bsepsis\b', r'\bstroke\b', r'\bembolism\b', r'\bthrombosis\b', r'\binfarction\b',
+            
+            # Clinical signs/symptoms
+            r'\bfever\b', r'\bpain\b', r'\bedema\b', r'\bcyanosis\b', r'\bjaundice\b',
+            r'\bdyspnea\b', r'\btachycardia\b', r'\bbradycardia\b',
+            
+            # Anatomy terms
+            r'\bartery\b', r'\bvein\b', r'\bnerve\b', r'\bmuscle\b', r'\bligament\b',
+            r'\btendon\b', r'\bcortex\b', r'\bmedulla\b', r'\bnucleus\b',
+            
+            # Lab/diagnostic qualifiers
+            r'\bpositive\b', r'\bnegative\b', r'\belevated\b', r'\bdecreased\b',
+            r'\bnormal\b', r'\babnormal\b',
+            
+            # Directional terms not in original
+            r'\bproximal\b', r'\bdistal\b', r'\bmedial\b', r'\blateral\b',
+            r'\banterior\b', r'\bposterior\b', r'\bsuperior\b', r'\binferior\b',
+        ]
+        
+        # Keep your original function logic
         def replace_if_not_in_cloze(match):
             term = match.group(0)
             start = match.start()
@@ -873,8 +1035,17 @@ class MedicalAnkiGenerator:
                 return term
             return f'<b>{term}</b>'
         
-        for pattern in key_patterns:
+        # Apply all patterns
+        all_patterns = existing_key_patterns + medical_suffixes + drug_patterns + additional_terms
+        
+        for pattern in all_patterns:
             text = re.sub(pattern, replace_if_not_in_cloze, text, flags=re.IGNORECASE)
+        
+        # Also bold medical abbreviations (2+ capital letters)
+        text = re.sub(r'\b[A-Z]{2,}\b', replace_if_not_in_cloze, text)
+        
+        # Bold mixed case medical terms (mTOR, HER2, etc.)
+        text = re.sub(r'\b[a-z]*[A-Z][a-z]*[A-Z][a-zA-Z]*\b', replace_if_not_in_cloze, text)
         
         return text
     
@@ -1535,23 +1706,59 @@ class MedicalAnkiGenerator:
     TASK: For EACH cloze card, perform this systematic check:
 
     1. Write out the card WITHOUT cloze deletions (replace with * or _)
-    2. Check if context/topic is clear (ambiguity = >100 possible answers for a medical student)
-    3. Check if deletions are guessable within a narrow domain
+    2. Cloze Context check: Write HOW the context/disease is implied in the REMAINING text WITHOUT cloze deletions, WITHIN the card ONLY (not other cards). Note: Each card's text will be reviewed WITHOUT the words within the cloze deletion, context of surrounding cards, or knowledge of the deck name, while being mixed with cards from different topics. It is paramount that the context (e.g. specific disease) of the card can be identified from the words in the blanked out (i.e. without the answers) cloze alone. **IMPORTANT** Note that this is NOT the "context" section of the card in the json file structure - do NOT modify this section, but the context evident in the content being tested within the card.
+    - "disease/context evident from [specific phrase/term] in this card" if context is clear
+    - "not evident - no disease/condition mentioned in this card" if ambiguous
+    - "not evident - could apply to any [category]" if too generic
+    3. Ambiguity assessment: Count approximate possible answers for a medical student
+    - <10 = narrow/good
+    - 10-50 = moderate/acceptable  
+    - >50 = too broad/unacceptable
     4. Check if deletions are too obvious (mutually exclusive options not deleted, acronyms spelled out)
     5. Check if hints sufficiently reduce ambiguity
     6. Check if hints are too obvious
-    7. Take action: modify text/hints OR mark for removal if obvious
+    7. Check for acronym issues: If full name is given before acronym, both should be in same cloze
+    8. Take action: modify text/hints OR mark for removal if obvious
+
+    CRITICAL CONTEXT FAILURES:
+    - "Treatment includes..." → Context: not evident - no disease mentioned in this card
+    - "T2 disease" → Context: not evident - no cancer type specified in this card
+    - "Presents in infancy with high mortality" → Context: not evident - could apply to many diseases
+    - "Follow-up after treatment" → Context: not evident - treatment for what?
+
+    GOOD CONTEXT EXAMPLES:
+    - "In bladder cancer, T2 signifies..." → Context: evident from "bladder cancer"
+    - "ARPKD presents in infancy" → Context: evident from disease name "ARPKD"
+    - "For uric acid stones, alkalinisation..." → Context: evident from "uric acid stones"
+        
+    ACRONYM CHECK:
+    - If text has "Full Name (ACRONYM)", the acronym cloze is meaningless
+    - Both full name and acronym should be tested together: {{c1::full name (ACRONYM)}} or {{c1::full name}} {{c1::(ACRONYM)}}
 
     EXAMPLE ANALYSIS:
     Original: A careful history guides {{{{c1::seizure classification}}}}, {{{{c1::epilepsy syndrome diagnosis}}}}, and {{{{c1::antiseizure medication titration::management}}}}.
     Without cloze: A careful history guides *, *, and _.
-    Context check: FAIL - seizure context missing, >100 possible clinical scenarios
-    Guessability: FAIL - too broad without disease context
-    Obviousness: PASS - not obvious
+    Context check: Disease not evident - no disease mentioned (history used for almost all diseases)
+    Ambiguity: >100 possible answers (i.e. any disease that requires a history) - too broad without disease context
+    Obviousness: PASS - not obvious because card is currently too ambiguous
     Hints check: FAIL - "management" too vague without disease context
     Hints Obviousness: PASS - not obvious
+    Acronym issues: Pass - no acronyms
     Action: ADD CONTEXT
     New: A careful seizure history guides {{{{c1::seizure classification::seizure diagnosis}}}}, {{{{c1::epilepsy syndrome diagnosis::epilepsy diagnosis}}}}, and {{{{c1::antiseizure medication titration::management}}}}.
+
+    EXAMPLE ANALYSIS:
+    Original:     {{c1::Radiotherapy::adjuvant treatment}} is often considered for {{c2::close or involved surgical margins::indication}} after a period of {{c3::systemic chemotherapy::sequence}}. 
+    Without cloze: c1: * is often considered for close or involved surgical margins after a period of systemic chemotherapy, c2: Radiotherapy is often considered for * after a period of systemic chemotherapy, c3: Radiotherapy is often considered for close or involved surgical margins after a period of *
+    Context check: Disease not evident - no disease mentioned in c1,c2,c3 (Radiotherapy used as adjuvant treatment for a wide range of malignancies)
+    Ambiguity: >100 possible answers (i.e. any malignancy) - too broad without disease context
+    Obviousness: PASS - not obvious because card is currently too ambiguous
+    Hints check: FAIL - "indication" and "sequence" too vague without disease context
+    Hints Obviousness: PASS - not obvious
+    Acronym issues: Pass - no acronyms
+    Action: ADD CONTEXT
+    New: In Pancreatic Cancer, {{c1::Radiotherapy::adjuvant treatment}} is often considered for {{c2::close or involved surgical margins::indication}} after a period of {{c3::systemic chemotherapy::sequence}}. 
+
 
     Current cards:
     {json.dumps(cards, indent=2)}
@@ -1563,7 +1770,7 @@ class MedicalAnkiGenerator:
                 "slide": 1,
                 "text": "Final checked card text",
                 "facts": ["fact1"],
-                "context": "Context",
+                "context": "Context", #NOTE: THIS SHOULD NOT BE CHANGED
                 "clinical_relevance": "Clinical pearl"
             }}
         ],
@@ -1572,8 +1779,8 @@ class MedicalAnkiGenerator:
                 "card_index": 0,
                 "original_text": "Original card text",
                 "without_cloze": "Card with * and _ replacing clozes",
-                "context_clear": false,
-                "guessability": "too broad",
+                "context_check": "not evident - no disease/condition mentioned",
+                "ambiguity_count": ">100 possible answers",
                 "obviousness": "appropriate",
                 "hints_sufficient": false,
                 "hints_obvious": false,
